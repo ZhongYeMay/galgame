@@ -56,7 +56,8 @@ static bool save(const fs::path&p,const std::string&node){
  return !ec;
 }
 int main(int argc,char**argv){
- if(argc!=4){std::cerr<<"Usage: mayos_summer_play <game-root> <story.generated.json> <font.ttf>\n";return 2;}
+ if((argc!=4 && argc!=5) || (argc==5 && std::string(argv[4])!="--smoke-test")){std::cerr<<"Usage: mayos_summer_play <game-root> <story.generated.json> <font.ttf> [--smoke-test]\n";return 2;}
+ const bool smoke=(argc==5);
  fs::path root=fs::absolute(argv[1]),fontPath=argv[3];
  if(!fs::is_regular_file(root/"site/story.js")||!fs::is_regular_file(root/"site/game.js")){std::cerr<<"Missing original game files\n";return 3;}
  json data;
@@ -148,6 +149,7 @@ int main(int argc,char**argv){
    }
   }
   SDL_RenderPresent(r);
+  if(smoke)running=false;
  }
  music.close();if(audioReady)SDL_QuitSubSystem(SDL_INIT_AUDIO);
  actor.reset();bg.reset();TTF_CloseFont(f);SDL_DestroyRenderer(r);SDL_DestroyWindow(w);
