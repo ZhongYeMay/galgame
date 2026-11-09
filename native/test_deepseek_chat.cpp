@@ -31,6 +31,10 @@ int main() {
             if(std::string(other)!=name)
                 assert(payload.at("messages")[0]["content"].get<std::string>().find(other)==std::string::npos);
     }
+    const Json character={{"name","橘 凪"},{"job","摄影师"},{"place","七里滨"},{"intro","风景摄影"}};
+    const Json proactive=DeepSeekChat::makeRequest(character,scene,{}, "", "deepseek-flash",true);
+    assert(proactive.at("messages").back()["content"].get<std::string>().find("主动开始")!=std::string::npos);
+    assert(proactive.at("messages").back()["content"].get<std::string>().find("选项")!=std::string::npos);
     std::cout<<"AI request contracts passed: 3 heroine profiles, context limit, model and credential safety\n";
     return 0;
 }
