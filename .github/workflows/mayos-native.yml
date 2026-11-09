@@ -1,0 +1,42 @@
+name: MayOS native Linux build
+on:
+  push:
+    branches: [mayos-game-package]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev nlohmann-json3-dev fonts-noto-cjk
+      - name: Export original story
+        run: node tools/export_native_story.cjs native/story.generated.json
+      - name: Build both native executables
+        run: |
+          cmake -S native -B build/native
+          cmake --build build/native --parallel 2
+      - name: Verify original game assets
+        run: |
+          python3 tools/build_native_manifest.py . build/native/manifest.json
+          python3 tools/verify_native_package.py . build/native/manifest.json
+      - name: Run story-state unit tests
+        run: python3 -m unittest discover -s native -p 'test_*.py' -v
+      - name: Smoke-test original story branches
+        run: |
+          python3 native/story_runtime.py native/story.generated.json --choice 0
+          python3 native/story_runtime.py native/story.generated.json --choice 1
+      - name: Package Linux prototype
+        run: |
+          mkdir -p dist
+          cp build/native/mayos_summer_play dist/
+          cp native/story.generated.json dist/
+          cp build/native/manifest.json dist/
+          cp native/README.md dist/
+          tar -czf mayos-native-linux-prototype.tar.gz -C dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mayos-native-linux-prototype
+          path: mayos-native-linux-prototype.tar.gz
