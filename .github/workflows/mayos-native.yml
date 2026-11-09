@@ -39,12 +39,14 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: |
           ./build/native/mayos_summer_play . native/story.generated.json /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc --smoke-test
+          ./build/native/mayos_summer_ai . native/story.generated.json /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc --smoke-test
       - name: Package GitHub-downloading native launcher
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
           cp build/native/mayos_summer_play dist/
+          cp build/native/mayos_summer_ai dist/
           cp native/story.generated.json dist/
           cp build/native/manifest.json dist/
           cp native/launch_native.py native/install_shortcut.py dist/
