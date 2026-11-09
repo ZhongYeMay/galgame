@@ -188,14 +188,14 @@ def main():
     parser.add_argument("--download-only", action="store_true")
     parser.add_argument("--cache-dir", type=Path)
     args = parser.parse_args()
-    executable = BASE / "mayos_summer_play"
+    executable = BASE / "mayos_summer_ai"
     story = BASE / "story.generated.json"
     cache = args.cache_dir or Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mayos-summer"
     try:
         if not story.is_file():
             raise FileNotFoundError("Missing built-in story export")
         if not args.download_only and not executable.is_file():
-            raise FileNotFoundError("Missing native SDL executable")
+            raise FileNotFoundError("Missing native AI-first SDL executable")
         assets = ensure_assets(BASE, cache)
         if args.download_only:
             print("Verified complete original game resources:", assets)
