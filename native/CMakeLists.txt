@@ -12,3 +12,8 @@ add_executable(mayos_summer main.cpp)
 target_link_libraries(mayos_summer PRIVATE SDL2::SDL2 SDL2_image::SDL2_image)
 add_executable(mayos_summer_play playable.cpp)
 target_link_libraries(mayos_summer_play PRIVATE SDL2::SDL2 SDL2_image::SDL2_image SDL2_ttf::SDL2_ttf nlohmann_json::nlohmann_json CURL::libcurl Threads::Threads)
+
+enable_testing()
+add_executable(test_deepseek_chat test_deepseek_chat.cpp)
+target_link_libraries(test_deepseek_chat PRIVATE nlohmann_json::nlohmann_json CURL::libcurl Threads::Threads)
+add_test(NAME native_deepseek_prompt_contract COMMAND test_deepseek_chat)
