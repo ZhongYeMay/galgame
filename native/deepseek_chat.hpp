@@ -140,6 +140,20 @@ public:
         return {busy_, answer_, error_, outputTokens_};
     }
 
+    // Prevent a previous heroine's answer/history from appearing in a new route.
+    bool selectRoute(const std::string& route) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (busy_) return false;
+        if (route_ != route) {
+            route_ = route;
+            prior_.clear();
+            answer_.clear();
+            error_.clear();
+            outputTokens_ = 0;
+        }
+        return true;
+    }
+
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!busy_) {
