@@ -15,7 +15,7 @@
 
 ## Linux 本地编译与试运行
 
-需安装 CMake、C++17 编译器、Node.js、SDL2、SDL2_image（含 WebP）、SDL2_ttf、nlohmann-json 和一款中日韩字体。
+需安装 CMake、C++17 编译器、Node.js、SDL2、SDL2_image（含 WebP）、SDL2_ttf、nlohmann-json、libcurl、线程库和一款中日韩字体。
 
 ```sh
 node tools/export_native_story.cjs native/story.generated.json
@@ -34,6 +34,8 @@ cmake --build build/native --parallel 2
 | H | 历史对白 |
 | A / S | 自动推进 / 已读快进 |
 | M | 开关背景音乐（默认关闭） |
+| T | 进入可选 DeepSeek AI 女主自由对话（见 AI_MODE.md） |
+| AI 模式 Enter / Esc | 发送消息 / 返回原版剧情 |
 | 上 / 下方向键 | 调整音乐音量 |
 | Esc | 关闭历史面板或退出 |
 
@@ -61,5 +63,8 @@ python3 install_shortcut.py
 - 尚无 MayKernel 专用 SDL/图形、音频、网络、字体、文件系统后端，也没有 MayKernel 启动验证。
 - Linux 产物依赖目标系统的 SDL2 动态库与 CJK 字体；尚无全平台独立安装包。
 - Linux 编译和无头运行以实际 CI 结果为准，不能把提交代码等同于测试通过。
+- DeepSeek 实时调用需要运行时环境变量 DEEPSEEK_API_KEY；真实密钥从不写入仓库。AI 模式不改变原版主线。
+- AI API 的真实联网验收尚未执行；离线自动测试只检查请求格式和人物设定。
+
 
 本移植不更改原版 `site/` 内任何剧情或素材，原版浏览器游戏继续独立运行。
