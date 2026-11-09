@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -73,7 +74,8 @@ int main(int argc,char**argv){
  const json&story=data["story"];
  std::string node="p0";
  json history=json::array(),readNodes=json::array(),unlocked=json::array();
- bool showHistory=false;
+ bool showHistory=false,autoPlay=false;
+ Uint32 nodeAt=0,sceneFadeAt=0,actorFadeAt=0;
  const char* dataHome=std::getenv("XDG_DATA_HOME");
  const char* home=std::getenv("HOME");
  fs::path savePath=dataHome&&*dataHome
@@ -104,7 +106,7 @@ int main(int argc,char**argv){
    history.push_back({{"node",node},{"who",old.value("who",std::string("旁白"))},{"text",old["text"]}});
    if(history.size()>500)history.erase(history.begin());
   }
-  node=target;
+  node=target;nodeAt=SDL_GetTicks();
   if(story.at(node).value("ending",false)&&!arrayContains(unlocked,node))unlocked.push_back(node);
  };
  bool running=true;
@@ -114,11 +116,12 @@ int main(int argc,char**argv){
   std::string background=item.value("bg",std::string("studio"));
   int pose=item.value("pose",0);
   std::string sprite=route+"-"+std::to_string(pose);
-  if(background!=bgKey){if(bg.image(r,root/"site/assets/retro"/(background+".webp")))bgKey=background;}
-  if(sprite!=actorKey){if(actor.image(r,root/"site/assets/retro"/(sprite+".webp")))actorKey=sprite;}
+  if(background!=bgKey){if(bg.image(r,root/"site/assets/retro"/(background+".webp"))){bgKey=background;sceneFadeAt=SDL_GetTicks();}}
+  if(sprite!=actorKey){if(actor.image(r,root/"site/assets/retro"/(sprite+".webp"))){actorKey=sprite;actorFadeAt=SDL_GetTicks();}}
   SDL_Event e;
   while(SDL_PollEvent(&e)){
    if(e.type==SDL_QUIT)running=false;
+   if(e.type==SDL_MOUSEBUTTONDOWN && showHistory)continue;
    if(e.type==SDL_MOUSEBUTTONDOWN && e.button.button==SDL_BUTTON_LEFT){
      int width,height;SDL_GetRendererOutputSize(r,&width,&height);
      int x=e.button.x,y=e.button.y;
@@ -136,6 +139,15 @@ int main(int argc,char**argv){
    auto key=e.key.keysym.sym;
    if(key==SDLK_ESCAPE){if(showHistory)showHistory=false;else running=false;continue;}
    if(key==SDLK_h){showHistory=!showHistory;continue;}
+   if(showHistory)continue;
+   if(key==SDLK_a){autoPlay=!autoPlay;nodeAt=SDL_GetTicks();continue;}
+   if(key==SDLK_s){
+    if(!item.contains("choices")&&item.contains("next")&&
+       item["next"].is_string()&&
+       arrayContains(readNodes,item["next"].get<std::string>()))
+      jump(item["next"].get<std::string>());
+    continue;
+   }
    if(key==SDLK_m){music.toggle();continue;}
    if(key==SDLK_UP){music.setVolume(0.40f);continue;}
    if(key==SDLK_DOWN){music.setVolume(0.12f);continue;}
@@ -161,7 +173,7 @@ int main(int argc,char**argv){
         if(!value.is_string())throw std::runtime_error("Malformed progression");
       history=state["history"];readNodes=state["read"];unlocked=state["unlocked"];
      }else if(state.at("schema")!=1)throw std::runtime_error("Unsupported save");
-     node=saved;showHistory=false;
+     node=saved;nodeAt=SDL_GetTicks();showHistory=false;autoPlay=false;
     }catch(const std::exception&e){std::cerr<<"Load failed: "<<e.what()<<"\n";}
     continue;
    }
@@ -173,12 +185,30 @@ int main(int argc,char**argv){
     if(item.contains("next")&&item["next"].is_string())jump(item["next"].get<std::string>());
    }
   }
+  if(autoPlay && !showHistory && !item.value("ending",false) &&
+     !item.contains("choices") && item.contains("next") &&
+     SDL_GetTicks()-nodeAt>std::max<Uint32>(1900u,static_cast<Uint32>(item.value("text",std::string("")).size()*75u))){
+      jump(item["next"].get<std::string>());
+  }
   int width,height;SDL_GetRendererOutputSize(r,&width,&height);
   SDL_SetRenderDrawColor(r,16,16,20,255);SDL_RenderClear(r);
   bg.draw(r,SDL_Rect{0,0,width,height});
   int ah=height*85/100,aw=actor.h?ah*actor.w/actor.h:0;
-  actor.draw(r,SDL_Rect{(width-aw)/2,height-ah,aw,ah});
+  const auto elapsed=SDL_GetTicks()-actorFadeAt;
+  const float appear=std::clamp(elapsed/350.0f,0.0f,1.0f);
+  if(actor.ptr)SDL_SetTextureAlphaMod(actor.ptr,static_cast<Uint8>(255*appear));
+  const std::string action=item.value("action",std::string("still"));
+  const float motion=std::max(0.0f,1.0f-elapsed/450.0f);
+  int offset=action=="nod"?static_cast<int>(6*std::sin(elapsed/60.0f)*motion)
+       :action=="speak"?static_cast<int>(-8*motion):0;
+  int zoom=action=="near"?static_cast<int>(aw*0.03f*motion):0;
+  actor.draw(r,SDL_Rect{(width-aw)/2-zoom,height-ah+offset,aw+zoom*2,ah+zoom});
   SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+  const float sceneProgress=std::clamp((SDL_GetTicks()-sceneFadeAt)/450.0f,0.0f,1.0f);
+  if(sceneProgress<1.0f){
+    SDL_SetRenderDrawColor(r,0,0,0,static_cast<Uint8>((1.0f-sceneProgress)*255));
+    SDL_Rect full{0,0,width,height};SDL_RenderFillRect(r,&full);
+  }
   SDL_SetRenderDrawColor(r,10,10,17,220);
   SDL_Rect panel{0,height*64/100,width,height*36/100};SDL_RenderFillRect(r,&panel);
   SDL_Color white{245,245,245,255},soft{192,194,202,255};
