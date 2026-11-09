@@ -13,13 +13,15 @@ jobs:
       - name: Install native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev nlohmann-json3-dev fonts-noto-cjk
+          sudo apt-get install -y cmake g++ libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev nlohmann-json3-dev libcurl4-openssl-dev fonts-noto-cjk
       - name: Export all original story nodes
         run: node tools/export_native_story.cjs native/story.generated.json
       - name: Build native SDL2 executables
         run: |
           cmake -S native -B build/native
           cmake --build build/native --parallel 2
+      - name: Run offline AI dialogue integration contract tests
+        run: ctest --test-dir build/native --output-on-failure
       - name: Verify unmodified original game assets
         run: |
           python3 tools/build_native_manifest.py . build/native/manifest.json
