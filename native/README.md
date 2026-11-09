@@ -7,9 +7,9 @@
 
 - 直接加载原版 `site/assets/retro/*.webp` 场景与人物图片。
 - 使用 `tools/export_native_story.cjs` 从原版 `site/story.js` 导出全部故事数据；不改写剧情文本和分支。
-- 原生 UTF-8 中文、日文对白，数字键选择分支，鼠标点击推进或选项。
+- 原生 UTF-8 中文、日文对白，数字键选择分支，鼠标点击推进或选项；提供基础场景渐显、人物渐显及姿态动作。
 - 由 SDL 音频回调按原版网页游戏的旋律与间隔合成背景音乐。
-- F5 保存节点、历史对白、已读节点与已解锁结局到持久化 JSON；F9 读档；H 查看最近对白。
+- F5 保存节点、历史对白、已读节点与已解锁结局到持久化 JSON；F9 读档；H 查看最近对白；A 自动推进，S 跳过已读下一句。
 - Linux 启动器从固定 GitHub commit 下载**完整原版 site 目录**，用构建时的清单逐文件核对 SHA-256 与大小，完整匹配后才启动本地 C++ 程序。相同资源缓存并复查。
 - GitHub Actions 定义了构建、剧情测试、下载安全测试与 SDL headless 单帧测试。**是否实际通过需查看对应 Actions 运行结果。**
 
@@ -32,6 +32,7 @@ cmake --build build/native --parallel 2
 | 1–9 / 鼠标 | 选择剧情分支 |
 | F5 / F9 | 保存 / 读取 |
 | H | 历史对白 |
+| A / S | 自动推进 / 已读快进 |
 | M | 开关背景音乐（默认关闭） |
 | 上 / 下方向键 | 调整音乐音量 |
 | Esc | 关闭历史面板或退出 |
@@ -43,6 +44,7 @@ cmake --build build/native --parallel 2
 在 `mayos-game-package` 分支的 Actions 工作流中，成功构建后下载 `mayos-native-linux-prototype` 压缩包。
 
 ```sh
+mkdir -p mayos-native
 tar xzf mayos-native-linux-prototype.tar.gz -C ./mayos-native
 cd ./mayos-native
 python3 launch_native.py --download-only
@@ -55,7 +57,7 @@ python3 install_shortcut.py
 ## 尚未完成的部分
 
 - GUI 风格尚未完整复现原版网页（标题页、相册、手动存档的六个槽位、设置面板等）。
-- 文字逐字动画、场景转场、角色姿态动画、自动推进与已读跳过尚不完整。
+- 文字逐字动画、完整场景转场和复杂角色动作尚不完整；自动推进、已读跳过目前是基础实现。
 - 尚无 MayKernel 专用 SDL/图形、音频、网络、字体、文件系统后端，也没有 MayKernel 启动验证。
 - Linux 产物依赖目标系统的 SDL2 动态库与 CJK 字体；尚无全平台独立安装包。
 - Linux 编译和无头运行以实际 CI 结果为准，不能把提交代码等同于测试通过。
