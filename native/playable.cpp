@@ -166,8 +166,9 @@ int main(int argc,char**argv){
     continue;
    }
    if(key==SDLK_t && !item.value("ending",false)){
-    aiMode=true;aiRoute=route;aiInput.clear();SDL_StartTextInput();
-    autoPlay=false;continue;
+    if(!ai.selectRoute(route))continue; // prior request must finish first.
+    aiMode=true;aiRoute=route;aiInput.clear();aiLastQuestion.clear();
+    SDL_StartTextInput();autoPlay=false;continue;
    }
    if(key==SDLK_ESCAPE){if(showHistory)showHistory=false;else running=false;continue;}
    if(key==SDLK_h){showHistory=!showHistory;continue;}
@@ -299,9 +300,14 @@ int main(int argc,char**argv){
     hy+=63;
    }
   }
+  if(!aiMode && !showHistory){
+   text(r,f,"T = AI 即兴对话    M = BGM    F5 = 存档    F9 = 读档",
+        x,height-38,maxWidth,white);
+  }
   SDL_RenderPresent(r);
   if(smoke)running=false;
  }
+ if(aiMode)SDL_StopTextInput();
  music.close();if(audioReady)SDL_QuitSubSystem(SDL_INIT_AUDIO);
  actor.reset();bg.reset();TTF_CloseFont(f);SDL_DestroyRenderer(r);SDL_DestroyWindow(w);
  TTF_Quit();IMG_Quit();SDL_Quit();return 0;
