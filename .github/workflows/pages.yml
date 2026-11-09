@@ -22,12 +22,14 @@ jobs:
         run: |
           node --check site/story.js
           node --check site/game.js
+      - name: Package the complete game for MayOS
+        run: python3 scripts/package_mayos.py "$GITHUB_SHA" pages-dist
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload game and AI artwork
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: pages-dist
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
