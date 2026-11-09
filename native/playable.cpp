@@ -2,6 +2,7 @@
 #include <SDL_image.h>
 #include <SDL_ttf.h>
 #include "audio.hpp"
+#include "deepseek_chat.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <filesystem>
@@ -109,10 +110,14 @@ int main(int argc,char**argv){
   node=target;nodeAt=SDL_GetTicks();
   if(story.at(node).value("ending",false)&&!arrayContains(unlocked,node))unlocked.push_back(node);
  };
+ DeepSeekChat ai;
+ bool aiMode=false;
+ std::string aiInput,aiLastQuestion,aiRoute;
  bool running=true;
  while(running){
   const json&item=story.at(node);
   std::string route=item.value("route",std::string("mio"));
+  if(aiMode && route!=aiRoute){aiMode=false;SDL_StopTextInput();aiInput.clear();}
   std::string background=item.value("bg",std::string("studio"));
   int pose=item.value("pose",0);
   std::string sprite=route+"-"+std::to_string(pose);
@@ -121,7 +126,12 @@ int main(int argc,char**argv){
   SDL_Event e;
   while(SDL_PollEvent(&e)){
    if(e.type==SDL_QUIT)running=false;
-   if(e.type==SDL_MOUSEBUTTONDOWN && showHistory)continue;
+   if(e.type==SDL_TEXTINPUT && aiMode){
+    std::string incoming=e.text.text;
+    if(aiInput.size()+incoming.size()<=600)aiInput+=incoming;
+    continue;
+   }
+   if(e.type==SDL_MOUSEBUTTONDOWN && (showHistory||aiMode))continue;
    if(e.type==SDL_MOUSEBUTTONDOWN && e.button.button==SDL_BUTTON_LEFT){
      int width,height;SDL_GetRendererOutputSize(r,&width,&height);
      int x=e.button.x,y=e.button.y;
@@ -137,6 +147,28 @@ int main(int argc,char**argv){
    }
    if(e.type!=SDL_KEYDOWN)continue;
    auto key=e.key.keysym.sym;
+   if(aiMode){
+    if(key==SDLK_ESCAPE){
+     aiMode=false;SDL_StopTextInput();aiInput.clear();continue;
+    }
+    if(key==SDLK_BACKSPACE && !aiInput.empty()){
+     size_t i=aiInput.size()-1;
+     while(i>0 && (static_cast<unsigned char>(aiInput[i])&0xc0)==0x80)--i;
+     aiInput.erase(i);continue;
+    }
+    if((key==SDLK_RETURN || key==SDLK_KP_ENTER) && !aiInput.empty()){
+     if(ai.send(data["characters"].at(route),item,aiInput,route)){
+      aiLastQuestion=aiInput;
+      aiInput.clear();
+     }
+     continue;
+    }
+    continue;
+   }
+   if(key==SDLK_t && !item.value("ending",false)){
+    aiMode=true;aiRoute=route;aiInput.clear();SDL_StartTextInput();
+    autoPlay=false;continue;
+   }
    if(key==SDLK_ESCAPE){if(showHistory)showHistory=false;else running=false;continue;}
    if(key==SDLK_h){showHistory=!showHistory;continue;}
    if(showHistory)continue;
@@ -226,6 +258,32 @@ int main(int argc,char**argv){
      text(r,f,choice,x,cy,maxWidth,white);cy+=36;
     }
    }
+  }
+  if(aiMode){
+   const auto state=ai.status();
+   SDL_Rect chatPanel{width/25,height*35/100,width*23/25,height*61/100};
+   SDL_SetRenderDrawColor(r,12,12,19,244);
+   SDL_RenderFillRect(r,&chatPanel);
+   SDL_Color whiteChat{248,246,242,255},mutedChat{196,197,206,255};
+   const int left=chatPanel.x+24;
+   const int rightWidth=chatPanel.w-48;
+   std::string name=data["characters"].at(route).value("name",std::string("女主角"));
+   text(r,f,name+" · AI 即兴对话（非正史）",left,chatPanel.y+12,rightWidth,whiteChat);
+   text(r,f,"T 开启 | ESC 返回故事 | Enter 发送 | 仅发送本次对话和近期历史",
+        left,chatPanel.y+48,rightWidth,mutedChat);
+   if(!aiLastQuestion.empty())
+    text(r,f,"你："+aiLastQuestion,left,chatPanel.y+90,rightWidth,whiteChat);
+   std::string reply;
+   if(state.busy)reply="正在生成本次独特对白……";
+   else if(!state.error.empty())reply=state.error;
+   else if(!state.answer.empty())reply=name+"："+state.answer;
+   else reply="输入一句话，看看此刻她会怎样回应。";
+   text(r,f,reply,left,chatPanel.y+138,rightWidth,mutedChat);
+   SDL_Rect inputBox{left,chatPanel.y+chatPanel.h-62,rightWidth,48};
+   SDL_SetRenderDrawColor(r,45,45,55,255);
+   SDL_RenderFillRect(r,&inputBox);
+   text(r,f," > "+aiInput+(state.busy?"（生成中，暂不可发送）":"▌"),
+        inputBox.x+8,inputBox.y+6,inputBox.w-16,whiteChat);
   }
   if(showHistory){
    SDL_SetRenderDrawColor(r,8,8,12,238);
