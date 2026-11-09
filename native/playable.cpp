@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -47,13 +48,18 @@ static void text(SDL_Renderer*r,TTF_Font*f,const std::string&s,int x,int y,int m
   SDL_FreeSurface(s);y+=lineHeight;
  }
 }
-static bool save(const fs::path&p,const std::string&node){
- fs::create_directories(p.parent_path());
- auto temp=p;temp+=".tmp";
- {std::ofstream out(temp,std::ios::binary);if(!out)return false;out<<json({{"schema",1},{"node",node}}).dump(2);if(!out)return false;}
- std::error_code ec;fs::rename(temp,p,ec);
- if(ec){fs::remove(p,ec);ec.clear();fs::rename(temp,p,ec);}
- return !ec;
+static bool save(const fs::path&p,const json&state){
+ try {
+  fs::create_directories(p.parent_path());
+  auto temp=p;temp+=".tmp";
+  {std::ofstream out(temp,std::ios::binary|std::ios::trunc);
+   if(!out)return false;
+   out<<state.dump(2);
+   out.flush();
+   if(!out)return false;}
+  fs::rename(temp,p); // Atomic replacement on Linux, original save survives failures.
+  return true;
+ }catch(const std::exception&e){std::cerr<<"Save error: "<<e.what()<<"\n";return false;}
 }
 int main(int argc,char**argv){
  if((argc!=4 && argc!=5) || (argc==5 && std::string(argv[4])!="--smoke-test")){std::cerr<<"Usage: mayos_summer_play <game-root> <story.generated.json> <font.ttf> [--smoke-test]\n";return 2;}
@@ -66,8 +72,17 @@ int main(int argc,char**argv){
  }catch(const std::exception&e){std::cerr<<e.what()<<"\n";return 4;}
  const json&story=data["story"];
  std::string node="p0";
- fs::path savePath;
- try{savePath=fs::temp_directory_path()/"mayos-summer"/"save.json";}catch(...){savePath="save.json";}
+ json history=json::array(),readNodes=json::array(),unlocked=json::array();
+ bool showHistory=false;
+ const char* dataHome=std::getenv("XDG_DATA_HOME");
+ const char* home=std::getenv("HOME");
+ fs::path savePath=dataHome&&*dataHome
+   ?fs::path(dataHome)/"mayos-summer"/"save.json"
+   :home&&*home ?fs::path(home)/".local/share/mayos-summer/save.json"
+                :fs::path("mayos-summer-save.json");
+ const auto arrayContains=[](const json&array,const std::string&value){
+  return std::find(array.begin(),array.end(),value)!=array.end();
+ };
  if(SDL_Init(SDL_INIT_VIDEO)!=0)return 5;
  const bool audioReady=SDL_InitSubSystem(SDL_INIT_AUDIO)==0;
  NativeBgm music;
@@ -80,7 +95,18 @@ int main(int argc,char**argv){
  TTF_Font*f=TTF_OpenFont(fontPath.string().c_str(),26);
  if(!w||!r||!f){std::cerr<<"SDL renderer or font initialization failed\n";if(f)TTF_CloseFont(f);if(r)SDL_DestroyRenderer(r);if(w)SDL_DestroyWindow(w);TTF_Quit();IMG_Quit();SDL_Quit();return 8;}
  Texture bg,actor;std::string bgKey,actorKey;
- auto jump=[&](const std::string&target){if(story.contains(target))node=target;else std::cerr<<"Invalid target: "<<target<<"\n";};
+ auto jump=[&](const std::string&target){
+  if(!story.contains(target)){std::cerr<<"Invalid target: "<<target<<"\n";return;}
+  if(node==target)return;
+  const json&old=story.at(node);
+  if(!arrayContains(readNodes,node))readNodes.push_back(node);
+  if(old.contains("text")&&old["text"].is_string()){
+   history.push_back({{"node",node},{"who",old.value("who",std::string("旁白"))},{"text",old["text"]}});
+   if(history.size()>500)history.erase(history.begin());
+  }
+  node=target;
+  if(story.at(node).value("ending",false)&&!arrayContains(unlocked,node))unlocked.push_back(node);
+ };
  bool running=true;
  while(running){
   const json&item=story.at(node);
@@ -108,14 +134,37 @@ int main(int argc,char**argv){
    }
    if(e.type!=SDL_KEYDOWN)continue;
    auto key=e.key.keysym.sym;
-   if(key==SDLK_ESCAPE){running=false;continue;}
+   if(key==SDLK_ESCAPE){if(showHistory)showHistory=false;else running=false;continue;}
+   if(key==SDLK_h){showHistory=!showHistory;continue;}
    if(key==SDLK_m){music.toggle();continue;}
    if(key==SDLK_UP){music.setVolume(0.40f);continue;}
    if(key==SDLK_DOWN){music.setVolume(0.12f);continue;}
-   if(key==SDLK_F5){if(!save(savePath,node))std::cerr<<"Save failed\n";continue;}
-   if(key==SDLK_F9){try{std::ifstream in(savePath);json state;in>>state;
-      if(state.at("schema")==1&&state.at("node").is_string())jump(state.at("node").get<std::string>());
-     }catch(...){std::cerr<<"Load failed\n";}continue;}
+   if(key==SDLK_F5){
+    json state={{"schema",2},{"node",node},{"history",history},{"read",readNodes},{"unlocked",unlocked}};
+    if(!save(savePath,state))std::cerr<<"Save failed\n";
+    continue;
+   }
+   if(key==SDLK_F9){
+    try {
+     std::ifstream in(savePath);
+     json state;in>>state;
+     std::string saved=state.at("node").get<std::string>();
+     if(!story.contains(saved))throw std::runtime_error("Unknown save node");
+     if(state.at("schema")==2 && state.at("history").is_array() &&
+         state.at("read").is_array() && state.at("unlocked").is_array()){
+      for(const auto&row:state["history"]){
+       if(!row.is_object()||!row.contains("text")||!row["text"].is_string())
+        throw std::runtime_error("Malformed history");
+      }
+      for(const auto&field:{"read","unlocked"})
+       for(const auto&value:state[field])
+        if(!value.is_string())throw std::runtime_error("Malformed progression");
+      history=state["history"];readNodes=state["read"];unlocked=state["unlocked"];
+     }else if(state.at("schema")!=1)throw std::runtime_error("Unsupported save");
+     node=saved;showHistory=false;
+    }catch(const std::exception&e){std::cerr<<"Load failed: "<<e.what()<<"\n";}
+    continue;
+   }
    if(item.value("ending",false)){if(key==SDLK_RETURN)jump("p0");continue;}
    if(item.contains("choices")){
     int index=key>=SDLK_1&&key<=SDLK_9?key-SDLK_1:-1;
@@ -146,6 +195,20 @@ int main(int argc,char**argv){
      std::string choice=std::to_string(i+1)+". "+item["choices"][i][0].get<std::string>();
      text(r,f,choice,x,cy,maxWidth,white);cy+=36;
     }
+   }
+  }
+  if(showHistory){
+   SDL_SetRenderDrawColor(r,8,8,12,238);
+   SDL_Rect overlay{width/12,height/14,width*5/6,height*6/7};
+   SDL_RenderFillRect(r,&overlay);
+   text(r,f,"LOG / 历史对白（按 H 返回）",overlay.x+20,overlay.y+12,overlay.w-40,white);
+   int count=static_cast<int>(history.size());
+   int start=std::max(0,count-8),hy=overlay.y+65;
+   for(int i=start;i<count;i++){
+    const json&row=history.at(i);
+    text(r,f,row.value("who",std::string("旁白"))+": "+
+       row.value("text",std::string("")),overlay.x+20,hy,overlay.w-40,soft);
+    hy+=63;
    }
   }
   SDL_RenderPresent(r);
