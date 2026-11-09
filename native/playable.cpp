@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include "audio.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <filesystem>
@@ -67,6 +68,9 @@ int main(int argc,char**argv){
  fs::path savePath;
  try{savePath=fs::temp_directory_path()/"mayos-summer"/"save.json";}catch(...){savePath="save.json";}
  if(SDL_Init(SDL_INIT_VIDEO)!=0)return 5;
+ const bool audioReady=SDL_InitSubSystem(SDL_INIT_AUDIO)==0;
+ NativeBgm music;
+ if(audioReady&&!music.open())std::cerr<<"Audio device unavailable: BGM disabled\n";
  if(!(IMG_Init(IMG_INIT_WEBP)&IMG_INIT_WEBP)){SDL_Quit();return 6;}
  if(TTF_Init()!=0){IMG_Quit();SDL_Quit();return 7;}
  SDL_Window*w=SDL_CreateWindow("MayOS - 夏日未寄",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,1280,720,SDL_WINDOW_RESIZABLE);
@@ -88,9 +92,25 @@ int main(int argc,char**argv){
   SDL_Event e;
   while(SDL_PollEvent(&e)){
    if(e.type==SDL_QUIT)running=false;
+   if(e.type==SDL_MOUSEBUTTONDOWN && e.button.button==SDL_BUTTON_LEFT){
+     int width,height;SDL_GetRendererOutputSize(r,&width,&height);
+     int x=e.button.x,y=e.button.y;
+     if(item.contains("choices")){
+       int choiceStart=height*64/100+14+125;
+       int index=(y-choiceStart)/36;
+       if(x>=width/16 && y>=choiceStart && index>=0 && index<(int)item["choices"].size())
+         jump(item["choices"][index][1].get<std::string>());
+     }else if(!item.value("ending",false) && item.contains("next") && y>height*64/100){
+       jump(item["next"].get<std::string>());
+     }else if(item.value("ending",false)){jump("p0");}
+     continue;
+   }
    if(e.type!=SDL_KEYDOWN)continue;
    auto key=e.key.keysym.sym;
    if(key==SDLK_ESCAPE){running=false;continue;}
+   if(key==SDLK_m){music.toggle();continue;}
+   if(key==SDLK_UP){music.setVolume(0.40f);continue;}
+   if(key==SDLK_DOWN){music.setVolume(0.12f);continue;}
    if(key==SDLK_F5){if(!save(savePath,node))std::cerr<<"Save failed\n";continue;}
    if(key==SDLK_F9){try{std::ifstream in(savePath);json state;in>>state;
       if(state.at("schema")==1&&state.at("node").is_string())jump(state.at("node").get<std::string>());
@@ -129,6 +149,7 @@ int main(int argc,char**argv){
   }
   SDL_RenderPresent(r);
  }
+ music.close();if(audioReady)SDL_QuitSubSystem(SDL_INIT_AUDIO);
  actor.reset();bg.reset();TTF_CloseFont(f);SDL_DestroyRenderer(r);SDL_DestroyWindow(w);
  TTF_Quit();IMG_Quit();SDL_Quit();return 0;
 }
