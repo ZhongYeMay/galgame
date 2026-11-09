@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <filesystem>
