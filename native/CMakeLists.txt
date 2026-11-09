@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(mayos_summer_native LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(SDL2 REQUIRED)
+find_package(SDL2_image REQUIRED)
+add_executable(mayos_summer main.cpp)
+target_link_libraries(mayos_summer PRIVATE SDL2::SDL2 SDL2_image::SDL2_image)
