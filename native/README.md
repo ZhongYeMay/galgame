@@ -1,7 +1,15 @@
 # 夏日未寄 / MayOS 原生移植（开发版）
 
-此目录包含 **C++17 + SDL2 原生程序**、音乐合成器、原版剧情导出器，以及 Linux 完整资源下载启动器。
+此目录包含 **C++17 + SDL2 原生程序**、AI 自由对白模式、经典固定剧情模式、音乐合成器、原版剧情导出器，以及 Linux 完整资源下载启动器。
 游戏程序不是浏览器窗口或 WebView，使用 SDL2 原生绘图、SDL_ttf 文字绘制和 SDL_Audio 运行时合成 BGM。
+
+## 默认玩法：AI 驱动的自由输入对话
+
+默认启动 `mayos_summer_ai`：不是选择题，不会显示预设的剧情回答选项。启动时女主开场白由 DeepSeek 实时生成；玩家每回合自行输入回答，模型生成后续女主台词。按 F4 请求女主主动生成新话题，按 F1/F2/F3 切换澪、凪、栞。剧情位置、角色职业和故事背景来自原版 `story.js` 导出数据。AI 对话只保存在运行内存，不改动原版剧情或六结局。
+
+只有配置 `DEEPSEEK_API_KEY` 并联网时才能出现 AI 台词；否则会明确显示未配置/网络错误，不使用假台词替代。API Key 不写入代码、包或日志。自动化测试不调用真实付费 API。
+
+经典版 `mayos_summer_play` 仍可单独运行，以便保留原版固定分支及六结局，不是默认启动目标。其存档/已读跳过/动画功能仍处于开发阶段。
 
 ## 已实现的开发版功能
 
@@ -21,7 +29,7 @@
 node tools/export_native_story.cjs native/story.generated.json
 cmake -S native -B build/native
 cmake --build build/native --parallel 2
-./build/native/mayos_summer_play . native/story.generated.json /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+./build/native/mayos_summer_ai . native/story.generated.json /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
 ```
 
 快捷键：
@@ -39,7 +47,7 @@ cmake --build build/native --parallel 2
 | 上 / 下方向键 | 调整音乐音量 |
 | Esc | 关闭历史面板或退出 |
 
-存档位置优先为 `$XDG_DATA_HOME/mayos-summer/save.json`，其次是 `~/.local/share/mayos-summer/save.json`。
+以下快捷键属于经典版，AI 自由对白模式使用 F1–F3 选女主、F4 主动发言、Enter 发送玩家填写的文字、Esc 退出。\n\n存档位置优先为 `$XDG_DATA_HOME/mayos-summer/save.json`，其次是 `~/.local/share/mayos-summer/save.json`。
 
 ## GitHub Actions 产物的使用方式
 
@@ -58,7 +66,7 @@ python3 install_shortcut.py
 
 ## 尚未完成的部分
 
-- GUI 风格尚未完整复现原版网页（标题页、相册、手动存档的六个槽位、设置面板等）。
+- AI 模式目前只实现自由对话，不具备原版六结局的动态 AI 剧情判定，经典版仍保留原剧情。\n- GUI 风格尚未完整复现原版网页（标题页、相册、手动存档的六个槽位、设置面板等）。
 - 文字逐字动画、完整场景转场和复杂角色动作尚不完整；自动推进、已读跳过目前是基础实现。
 - 尚无 MayKernel 专用 SDL/图形、音频、网络、字体、文件系统后端，也没有 MayKernel 启动验证。
 - Linux 产物依赖目标系统的 SDL2 动态库与 CJK 字体；尚无全平台独立安装包。
