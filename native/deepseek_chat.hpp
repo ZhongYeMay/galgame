@@ -25,7 +25,8 @@ public:
     static Json makeRequest(const Json& character, const Json& scene,
                             const std::deque<Json>& prior,
                             const std::string& question,
-                            const std::string& model = "deepseek-flash") {
+                            const std::string& model = "deepseek-flash",
+                            bool proactive = false) {
         const std::string name = character.value("name", std::string("女主角"));
         const std::string job = character.value("job", std::string(""));
         const std::string place = character.value("place", std::string(""));
@@ -62,7 +63,11 @@ public:
                     messages.push_back({{"role", role}, {"content", entry["content"]}});
             }
         }
-        messages.push_back({{"role", "user"}, {"content", question}});
+        messages.push_back({{"role", "user"}, {"content", proactive
+            ? "请由这位虚构人物主动开始一轮自然的日常对话。禁止复述现成剧情句子；"
+              "结合地点或人物生活发起新话题，可提出一个自然的问题。"
+              "不要写玩家台词，也不要添加选项。"
+            : question}});
         return {{"model", model},
                 {"thinking", {{"type", "disabled"}}},
                 {"temperature", 1.0},
@@ -81,8 +86,9 @@ public:
     DeepSeekChat& operator=(const DeepSeekChat&) = delete;
 
     bool send(const Json& character, const Json& scene,
-              const std::string& question, const std::string& route) {
-        if (question.empty() || question.size() > 900) {
+              const std::string& question, const std::string& route,
+              bool proactive = false) {
+        if ((!proactive && question.empty()) || question.size() > 900) {
             setError("请输入不超过900字节的对话内容。");
             return false;
         }
@@ -108,21 +114,22 @@ public:
                 prior_.clear();
                 route_ = route;
             }
-            payload = makeRequest(character, scene, prior_, question);
+            payload = makeRequest(character, scene, prior_, question, "deepseek-flash", proactive);
             busy_ = true;
             answer_.clear();
             error_.clear();
             outputTokens_ = 0;
         }
         worker_ = std::thread([this, payload = std::move(payload),
-                               question, key = std::move(key)]() mutable {
+                               question, proactive, key = std::move(key)]() mutable {
             std::string answer, error;
             int tokens = 0;
             perform(payload, key, answer, error, tokens);
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 if (error.empty() && !answer.empty()) {
-                    prior_.push_back({{"role", "user"}, {"content", question}});
+                    if (!proactive)
+                        prior_.push_back({{"role", "user"}, {"content", question}});
                     prior_.push_back({{"role", "assistant"}, {"content", answer}});
                     while (prior_.size() > 12) prior_.pop_front();
                 }
