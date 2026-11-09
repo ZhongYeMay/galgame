@@ -1,8 +1,10 @@
 name: MayOS native Linux build
+
 on:
   push:
     branches: [mayos-game-package]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -12,29 +14,51 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev nlohmann-json3-dev fonts-noto-cjk
-      - name: Export original story
+      - name: Export all original story nodes
         run: node tools/export_native_story.cjs native/story.generated.json
-      - name: Build both native executables
+      - name: Build native SDL2 executables
         run: |
           cmake -S native -B build/native
           cmake --build build/native --parallel 2
-      - name: Verify original game assets
+      - name: Verify unmodified original game assets
         run: |
           python3 tools/build_native_manifest.py . build/native/manifest.json
           python3 tools/verify_native_package.py . build/native/manifest.json
-      - name: Run story-state unit tests
+      - name: Run native story, save and launcher safety tests
         run: python3 -m unittest discover -s native -p 'test_*.py' -v
-      - name: Smoke-test original story branches
+      - name: Exercise all original story endings
         run: |
           python3 native/story_runtime.py native/story.generated.json --choice 0
           python3 native/story_runtime.py native/story.generated.json --choice 1
-      - name: Package Linux prototype
+          python3 native/story_runtime.py native/story.generated.json --choice 2
+      - name: Native SDL rendering smoke test (no display)
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
         run: |
+          ./build/native/mayos_summer_play . native/story.generated.json /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc --smoke-test
+      - name: Package GitHub-downloading native launcher
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p dist
           cp build/native/mayos_summer_play dist/
           cp native/story.generated.json dist/
           cp build/native/manifest.json dist/
+          cp native/launch_native.py native/install_shortcut.py dist/
           cp native/README.md dist/
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          Path("dist/package-config.json").write_text(
+              json.dumps({
+                  "repository": "ZhongYeMay/galgame",
+                  "commit": os.environ["GITHUB_SHA"]
+              }, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          PY
           tar -czf mayos-native-linux-prototype.tar.gz -C dist .
       - uses: actions/upload-artifact@v4
         with:
