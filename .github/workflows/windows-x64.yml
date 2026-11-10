@@ -1,0 +1,59 @@
+name: Windows 10 x64 desktop release
+
+on:
+  push:
+    branches: [windows-10-x64]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-win-x64:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify original website is pixel-source identical to main
+        shell: pwsh
+        run: |
+          git diff --exit-code origin/main -- site/
+          if ($LASTEXITCODE -ne 0) { throw 'The original site/ was changed' }
+      - name: Validate all original assets and AI-script syntax
+        shell: pwsh
+        run: |
+          node --check windows/desktop-ai.js
+          node windows/verify-source.cjs
+      - name: Publish self-contained Windows 10 x64 application
+        shell: pwsh
+        run: |
+          dotnet restore windows/MayosSummer.Win/MayosSummer.Win.csproj --runtime win-x64
+          dotnet publish windows/MayosSummer.Win/MayosSummer.Win.csproj --no-restore -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:PublishTrimmed=false -o dist/MayosSummer-Win10-x64
+      - name: Validate actual published EXE and original page resources
+        shell: pwsh
+        run: |
+          $root = 'dist/MayosSummer-Win10-x64'
+          foreach ($name in @('MayosSummer.exe','desktop-ai.js','www/index.html','www/style.css','www/story.js','www/game.js')) {
+            if (!(Test-Path "$root/$name")) { throw "Publish is missing $name" }
+          }
+          $art = @(Get-ChildItem "$root/www/assets/retro" -Filter '*.webp')
+          if ($art.Count -ne 12) { throw "Expected all 12 original WebP assets; got $($art.Count)" }
+          Get-ChildItem "$root/www" -Recurse -File | ForEach-Object {
+            $path = $_.FullName.Substring((Resolve-Path $root).Path.Length + 1).Replace('\','/')
+            [pscustomobject]@{ path = $path; sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); bytes = $_.Length }
+          } | ConvertTo-Json -Depth 3 | Set-Content "$root/site-sha256.json" -Encoding UTF8
+          Copy-Item windows/WINDOWS.md "$root/README-WINDOWS.txt"
+          Compress-Archive -Path "$root/*" -DestinationPath MayosSummer-Win10-x64.zip -CompressionLevel Optimal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MayosSummer-Win10-x64
+          path: MayosSummer-Win10-x64.zip
+          retention-days: 30
