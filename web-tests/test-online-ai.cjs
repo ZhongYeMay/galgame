@@ -33,7 +33,8 @@ async function main(){
     await page.route('https://api.deepseek.com/**',route=>{
       apiCalls++;
       const req=route.request();
-      assert.equal(req.headers()['authorization'],'Bearer sk-e2e-fake-not-secret');
+      if (req.method() !== 'OPTIONS')
+        assert.equal(req.headers()['authorization'],'Bearer sk-e2e-fake-not-secret');
       route.fulfill({status:200,contentType:'application/json',
         headers:{
           'access-control-allow-origin':'*',
