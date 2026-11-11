@@ -1,0 +1,44 @@
+name: Validate three distinct natural character voices
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/neural-voice-smoke.yml
+      - neural-test/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-three-voices:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Chinese neural voice engine
+        shell: bash
+        run: npm install --no-save --prefix neural-test @uzen/kokoro-js@1.2.4
+      - name: Fetch licensed distinct female voice profiles
+        shell: bash
+        run: |
+          mkdir -p neural-test/voices
+          for voice in zf_021 zf_070 zf_083; do
+            curl -fL --retry 3 "https://huggingface.co/onnx-community/Kokoro-82M-v1.1-zh-ONNX/resolve/main/voices/$voice.bin" -o "neural-test/voices/$voice.bin"
+            test "$(stat -c%s "neural-test/voices/$voice.bin")" -gt 400000
+          done
+      - name: Generate and validate original persona sample WAV files
+        shell: bash
+        run: node neural-test/generate.mjs
+      - name: Share non-robotic character voice samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Original-Character-Neural-Voice-Samples
+          path: neural-test/samples/
+          if-no-files-found: warn
+          retention-days: 20
