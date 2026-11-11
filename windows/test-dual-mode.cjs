@@ -141,6 +141,24 @@ async function main(){
     await page.evaluate(msg=>window.__hostDeliver({
       type:'reply',id:msg.id,route:msg.route,text:'那先从今晚的第一首曲子开始吧。'
     }),chat);
+    // Screenshot only after the original CSS scene fade and sprite swap have
+    // completed; immediately capturing mid-transition would show a blank stage.
+    await page.waitForTimeout(1300);
+    const art=await page.evaluate(()=>{
+      const background=document.getElementById('background');
+      const sprite=document.getElementById('sprite');
+      const actor=document.getElementById('actor');
+      return {
+        fade:document.getElementById('stage').classList.contains('scene-fade'),
+        opacity:Number(getComputedStyle(background).opacity),
+        actorVisibility:getComputedStyle(actor).visibility,
+        spriteLoaded:sprite.complete&&sprite.naturalWidth>0
+      };
+    });
+    assert.ok(!art.fade&&art.opacity>.9,'Original background fade not restored: '+JSON.stringify(art));
+    assert.equal(art.actorVisibility,'visible','Original actor sprite is hidden');
+    assert.ok(art.spriteLoaded,'Original heroine sprite failed to load');
+    await page.evaluate(()=>{document.getElementById('toast').hidden=true;});
     await page.screenshot({path:path.join(evidence,'03-ai-free-text.png')});
     await page.evaluate(()=>{
       openSaves('save');
