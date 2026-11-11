@@ -1,0 +1,31 @@
+name: Check DeepSeek browser CORS for GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/web-cors-check.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Probe real browser-style preflight without a key
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 18 -D preflight-headers.txt -o preflight-body.txt \
+            -X OPTIONS "https://api.deepseek.com/chat/completions" \
+            -H "Origin: https://zhongyemay.github.io" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: authorization,content-type"
+          cat preflight-headers.txt
+          if grep -qi "^access-control-allow-origin:" preflight-headers.txt; then
+            echo "Server advertises browser CORS origin support."
+          else
+            echo "::warning::No CORS allow-origin response; public website direct DeepSeek API may require a server-side proxy."
+          fi
