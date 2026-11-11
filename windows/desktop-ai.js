@@ -8,8 +8,11 @@
   const routes=['mio','nagi','shiori'];
   const prefix='mayos-summer-win10-ai-slot-';
   let route='mio',active=false,turns=[],requestId=0,pending=null,input='',ready=false;
+  // Offline is always the default: do not persist a previous online selection.
+  let selectedMode='offline';
   let field,sendButton,firstButton,state;
   let originalTitle,originalHistory,originalSaves,originalAuto,originalSkip,originalHide;
+  let originalNewGame,originalContinueGame,originalStartRoute;
   const chr=()=>CHARACTERS[route];
   function message(type,details={}) {
     const id=++requestId;
@@ -37,6 +40,10 @@
     const el=document.createElement('style');el.id='win10Style';
     el.textContent=[
       '#choiceList.win-ai{left:140px;top:282px;width:550px;gap:0}',
+      '.win-mode-toggle{display:flex;align-items:center;gap:12px;border-right:1px solid #b6a5ea44;padding-right:24px}',
+      '.win-mode-toggle button{font-family:var(--sans);font-size:10px;letter-spacing:1px;white-space:nowrap;padding:9px 12px;color:#e7d6f2}',
+      '.win-mode-toggle button[aria-pressed="true"]{border:1px solid #bda0e288;background:#aa8dd329;color:#fff2ff}',
+      '.win-mode-toggle button:focus-visible{outline:2px solid #d5baff;outline-offset:3px}',
       '.win-ai-box{padding:20px 25px;background:linear-gradient(90deg,#22254bf5,#33325ce8);border:1px solid #aa9cdb99;box-shadow:0 5px 25px #10143e66;backdrop-filter:blur(12px)}',
       '.win-ai-box label{display:block;font-family:var(--serif);font-size:12px;letter-spacing:3px;color:#d8c5f7;margin-bottom:11px}',
       '.win-ai-box textarea{width:100%;height:85px;padding:12px 14px;resize:none;background:#151a3dbb;border:1px solid #b6a5ea65;color:#f8f1ff;font-family:var(--serif);font-size:17px;line-height:1.5;outline:none}',
@@ -88,7 +95,7 @@
     form.addEventListener('submit',e=>{e.preventDefault();speak(false);});
     list.append(form);lock();
   }
-  function start(r='mio'){
+  function start(r='mio', options={}){
     if(!routes.includes(r))return;
     if(pending!==null){toast('请先完成当前请求再切换角色。');return;}
     originalTitle();route=r;active=true;turns=[];input='';
@@ -100,7 +107,9 @@
     byId('routeEn').textContent=chr().en;byId('routeTitle').textContent=chr().title;
     prepare();byId('dialogueText').classList.add('win-ai-line');
     showLine(chr().name,'');status('由 DeepSeek 生成女主开场白……');
-    message('reset');speak(true);
+    message('reset');
+    if(options.autoStart!==false) speak(true);
+    else status('历史记录已恢复。点击「让她先说」继续建立新的 AI 对话。');
   }
   function speak(proactive){
     if(!active||pending!==null)return;
@@ -154,7 +163,7 @@
           }));
           closeModal();toast('已保存到这台 Windows 电脑。');
         }else if(value&&routes.includes(value.route)){
-          start(value.route);
+          start(value.route,{autoStart:false});
           turns=Array.isArray(value.turns)?
             value.turns.filter(t=>t&&typeof t.who==='string'&&typeof t.text==='string').slice(-80):[];
           const last=turns.at(-1);if(last)showLine(last.who,last.text);
@@ -173,25 +182,85 @@
     byId('dialogueText').classList.remove('win-ai-line');
     originalTitle();
   }
+
+  // The selector belongs to the existing title footer. All original menu
+  // buttons, animations, original choices and save keys remain untouched.
+  function addModeSelector(){
+    const footer=byId('titleFooter');
+    const target=footer?.querySelector('div');
+    if(!target||byId('winModeSelector'))return;
+    style();
+    const group=document.createElement('div');
+    group.className='win-mode-toggle';group.id='winModeSelector';
+    group.setAttribute('role','group');
+    group.setAttribute('aria-label','选择游玩模式');
+    const buttons=[];
+    for(const [name,label] of [['offline','离线 · 完整剧情'],['ai','在线 · AI 自由对话']]){
+      const button=document.createElement('button');
+      button.type='button';
+      button.textContent=label;
+      button.dataset.mode=name;
+      button.addEventListener('click',()=>{
+        if(active){toast('请先返回标题，再切换游玩模式。');return;}
+        selectedMode=name;
+        updateModeButtons();
+      });
+      group.append(button);buttons.push(button);
+    }
+    target.prepend(group);
+    function updateModeButtons(){
+      for(const button of buttons)
+        button.setAttribute('aria-pressed',String(button.dataset.mode===selectedMode));
+      footer.dataset.windowsGameMode=selectedMode;
+    }
+    updateModeButtons();
+  }
+
+  function restoreTranscript(saved) {
+    turns=Array.isArray(saved.turns)
+      ? saved.turns.filter(t=>t&&typeof t.who==='string'&&typeof t.text==='string').slice(-80)
+      : [];
+    const last=turns.at(-1);
+    if(last)showLine(last.who,last.text);
+    return turns.length;
+  }
+
   function boot(){
     if(typeof CHARACTERS==='undefined'||!byId('stage'))return;
     originalTitle=window.goTitle;
+    originalNewGame=window.newGame;
+    originalContinueGame=window.continueGame;
+    originalStartRoute=window.startRoute;
     originalHistory=window.openHistory;
     originalSaves=window.openSaves;
     originalAuto=window.toggleAuto;
     originalSkip=window.skipRead;
     originalHide=window.toggleUI;
-    window.newGame=()=>start('mio');
-    window.continueGame=()=>{
-      let last=null;
-      for(let i=0;i<6;i++){
-        try{last=JSON.parse(localStorage.getItem(prefix+i));if(last)break;}catch{}
-      }
-      if(last&&routes.includes(last.route)){start(last.route);toast('可通过 LOAD 读取已有存档。');}
-      else start('mio');
+    addModeSelector();
+    window.newGame=()=>{
+      if(selectedMode==='offline') return originalNewGame();
+      start('mio');
     };
-    window.startRoute=r=>start(r);
-    window.goTitle=leave;
+    window.continueGame=()=>{
+      if(selectedMode==='offline')return originalContinueGame();
+      let saved=null;
+      for(let i=0;i<6;i++){
+        try{const candidate=JSON.parse(localStorage.getItem(prefix+i));
+          if(candidate&&routes.includes(candidate.route) &&
+             (!saved || candidate.at>saved.at))saved=candidate;
+        }catch{}
+      }
+      if(saved){
+        start(saved.route,{autoStart:false});
+        restoreTranscript(saved);
+        toast('已恢复 AI 文字记录。继续生成需要 API Key 和网络。');
+      }else start('mio');
+    };
+    if(typeof originalStartRoute==='function')
+      window.startRoute=r=>selectedMode==='ai'?start(r):originalStartRoute(r);
+    window.goTitle=()=>{
+      if(active)leave(); else originalTitle();
+    };
     window.openHistory=()=>active?history():originalHistory();
     window.openSaves=a=>active?saves(a):originalSaves(a);
     window.toggleAuto=()=>active?toast('AI 模式请使用「让她先说」生成新台词。'):originalAuto();
@@ -201,6 +270,8 @@
     document.addEventListener('keydown',e=>{
       if(e.key==='F11'){e.preventDefault();message('fullscreen');return;}
       if(!active)return;
+      if(e.target?.tagName==='TEXTAREA' &&
+         !['Escape','F4','F11'].includes(e.key))return;
       if(e.code==='Space'&&e.target?.tagName!=='TEXTAREA'){
         e.preventDefault();e.stopImmediatePropagation();field?.focus();return;
       }
