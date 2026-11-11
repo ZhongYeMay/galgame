@@ -299,6 +299,7 @@
   function start(r='mio', options={}){
     if(!routes.includes(r))return;
     if(pending!==null){toast('请先完成当前请求再切换角色。');return;}
+    window.dispatchEvent(new Event('mayos:ai-exit'));
     originalTitle();route=r;active=true;turns=[];input='';
     byId('stage').classList.add('playing');
     byId('titleScreen').hidden=true;byId('titleCharacterLabel').hidden=true;
@@ -380,6 +381,7 @@
     byId('modalBody').replaceChildren(grid);
   }
   function leave(){
+    window.dispatchEvent(new Event('mayos:ai-exit'));
     active=false;pending=null;input='';
     byId('winRoutes')?.remove();
     byId('choiceList').classList.remove('win-ai');
@@ -471,6 +473,10 @@
     originalHide=window.toggleUI;
     addModeSelector();
     addTitleAIStart();
+    // Direct link for users whose device hides the small footer:
+    // https://zhongyemay.github.io/galgame/?mode=ai
+    if(new URLSearchParams(location.search).get('mode')==='ai')
+      queueMicrotask(()=>byId('startAIStory')?.click());
     window.newGame=()=>{
       if(selectedMode==='offline') return originalNewGame();
       start('mio');
