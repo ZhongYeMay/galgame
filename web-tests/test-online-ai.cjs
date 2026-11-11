@@ -30,6 +30,22 @@ async function main(){
     page.on('pageerror',e=>pageErrors.push(e.message));
     await page.route('https://fonts.googleapis.com/**',r=>r.abort());
     await page.route('https://fonts.gstatic.com/**',r=>r.abort());
+    // A deterministic voice-model fixture checks identity and lifecycle.
+    // The production site still loads the real Kokoro model on demand.
+    await page.route('https://esm.sh/@uzen/kokoro-js@1.2.4?bundle',route=>
+      route.fulfill({
+        status:200,contentType:'text/javascript',
+        headers:{'access-control-allow-origin':'*'},
+        body:[
+          'export const KokoroTTS={from_pretrained:async()=>({',
+          'generate:async(text,options)=>{',
+          '  window.__voiceCalls=window.__voiceCalls||[];',
+          '  window.__voiceCalls.push({text,voice:options.voice,speed:options.speed});',
+          '  return {toBlob:()=>new Blob([new Uint8Array(44)],{type:"audio/wav"})}',
+          '}',
+          '})};'
+        ].join('')
+      }));
     await page.route('https://api.deepseek.com/**',route=>{
       apiCalls++;
       const req=route.request();
@@ -47,6 +63,15 @@ async function main(){
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',
       {waitUntil:'domcontentloaded'});
     await page.locator('#winModeSelector').waitFor();
+    await page.locator('#startAIStory').waitFor();
+    await page.locator('#voiceBtn').waitFor();
+    const voiceProfiles=await page.evaluate(()=>window.MayosCharacterVoice.getProfiles());
+    assert.deepEqual(Object.keys(voiceProfiles).sort(),['mio','nagi','shiori']);
+    assert.equal(new Set(Object.values(voiceProfiles).map(x=>x.voice)).size,3,
+      'Three heroines must have three distinct neural voices');
+    assert.ok(!fs.readFileSync(path.join(site,'character-voice.js'),'utf8')
+      .includes('window.speechSynthesis.speak('),
+      'Never fall back to generic browser speech');
     assert.equal(await page.locator('#winModeSelector [data-mode=offline]')
       .getAttribute('aria-pressed'),'true');
     const original=await page.evaluate(()=>({start:!!STORY.arrival_0,
@@ -58,13 +83,13 @@ async function main(){
     assert.equal(await page.locator('#winReply').count(),0);
     assert.equal(apiCalls,0,'Offline original must never invoke DeepSeek');
     await page.evaluate(()=>goTitle());
-    await page.locator('#winModeSelector [data-mode=ai]').click();
-    await page.locator('#titleScreen .start-button').click();
+    // The prominent title AI button is the primary path, not the tiny
+    // footer toggle that was invisible on phones.
+    await page.locator('#startAIStory').click();
     await page.locator('#winReply').waitFor();
-    await page.locator('.win-actions button').filter({hasText:'API 设置'}).click();
+    await page.locator('#webAiKey').waitFor();
     await page.locator('#webAiKey').fill('sk-e2e-fake-not-secret');
     await page.getByRole('button',{name:'仅本次使用'}).click();
-    await page.getByRole('button',{name:'让她先说'}).click();
     await page.waitForFunction(()=>
       document.getElementById('dialogueText').textContent.includes('海风很好'));
     assert.ok(apiCalls>=1,'Online mode must call the AI backend when enabled');
@@ -83,10 +108,20 @@ async function main(){
     await page.locator('#titleScreen .start-button').click();
     assert.equal(await page.evaluate(()=>node),'arrival_0');
     assert.equal(await page.locator('#winReply').count(),0);
+    // Actual original settings page must expose role-specific voice samples.
+    await page.evaluate(()=>openSettings());
+    await page.locator('#voiceSettings').waitFor();
+    for(const id of ['mio','nagi','shiori'])
+      await page.evaluate(async id=>{await window.MayosCharacterVoice.preview(id);},id);
+    await page.waitForFunction(()=>window.__voiceCalls?.length>=3);
+    const calls=await page.evaluate(()=>window.__voiceCalls.slice(-3));
+    assert.deepEqual(calls.map(x=>x.voice),
+      ['zf_021','zf_070','zf_083']);
     assert.deepEqual(pageErrors,[]);
     console.log(JSON.stringify({result:'PASS',original,offlineDefault:true,
       mockOnlineApiCalls:apiCalls,aiSaveIsolation:true,
-      keyNotSaved:true,errors:pageErrors}));
+      keyNotSaved:true,voiceProfiles,voiceSynthesisCalls:3,
+      genericBrowserTTS:false,errors:pageErrors}));
   }finally{
     await browser.close();
     await new Promise(resolve=>server.close(resolve));
