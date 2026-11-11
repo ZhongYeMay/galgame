@@ -37,13 +37,18 @@ async function main(){
         status:200,contentType:'text/javascript',
         headers:{'access-control-allow-origin':'*'},
         body:[
-          'export const KokoroTTS={from_pretrained:async()=>({',
-          'generate:async(text,options)=>{',
+          'export const KokoroTTS={from_pretrained:async(model,options)=>{',
+          '  options.progress_callback?.({status:"download",file:"model.onnx"});',
+          '  await new Promise(resolve=>setTimeout(resolve,40));',
+          '  options.progress_callback?.({status:"progress",file:"model.onnx",progress:37,loaded:37,total:100});',
+          '  await new Promise(resolve=>setTimeout(resolve,750));',
+          '  options.progress_callback?.({status:"done",file:"model.onnx"});',
+          '  return {generate:async(text,options)=>{',
           '  window.__voiceCalls=window.__voiceCalls||[];',
           '  window.__voiceCalls.push({text,voice:options.voice,speed:options.speed});',
           '  return {toBlob:()=>new Blob([new Uint8Array(44)],{type:"audio/wav"})}',
           '}',
-          '})};'
+          '}}};'
         ].join('')
       }));
     await page.route('https://api.deepseek.com/**',route=>{
@@ -111,7 +116,21 @@ async function main(){
     // Actual original settings page must expose role-specific voice samples.
     await page.evaluate(()=>openSettings());
     await page.locator('#voiceSettings').waitFor();
-    for(const id of ['mio','nagi','shiori'])
+    // Start the first natural-voice load without blocking test execution.
+    await page.evaluate(()=>{window.__firstVoicePreview=window.MayosCharacterVoice.preview('mio');});
+    const bar=page.locator('#voiceLoadOverlay [role=progressbar]');
+    await page.waitForFunction(()=>
+      document.querySelector('#voiceLoadOverlay [role=progressbar]')?.getAttribute('aria-valuenow')==='37');
+    assert.equal(await bar.getAttribute('aria-valuenow'),'37');
+    assert.match(await page.locator('#voiceLoadOverlay [data-voice-progress-detail]').innerText(),
+      /当前文件进度/);
+    assert.equal(await page.locator('#voiceLoadSettings [role=progressbar]')
+      .getAttribute('aria-valuenow'),'37','Settings view must mirror actual progress');
+    assert.equal(await page.locator('#voiceLoadOverlay').isVisible(),true);
+    await page.evaluate(()=>window.__firstVoicePreview);
+    await page.waitForFunction(()=>window.MayosCharacterVoice.getStatus().ready);
+    assert.equal((await page.evaluate(()=>window.MayosCharacterVoice.getStatus())).loading,false);
+    for(const id of ['nagi','shiori'])
       await page.evaluate(async id=>{await window.MayosCharacterVoice.preview(id);},id);
     await page.waitForFunction(()=>window.__voiceCalls?.length>=3);
     const calls=await page.evaluate(()=>window.__voiceCalls.slice(-3));
@@ -121,6 +140,7 @@ async function main(){
     console.log(JSON.stringify({result:'PASS',original,offlineDefault:true,
       mockOnlineApiCalls:apiCalls,aiSaveIsolation:true,
       keyNotSaved:true,voiceProfiles,voiceSynthesisCalls:3,
+      voiceProgressVerified:true,voiceProgressFilePercent:37,
       genericBrowserTTS:false,errors:pageErrors}));
   }finally{
     await browser.close();
