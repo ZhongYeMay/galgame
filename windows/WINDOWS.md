@@ -1,54 +1,40 @@
-# 夏日未寄 — Windows 10 x64 桌面版
+# 《夏日未寄》Windows 10 x64 完整版 · 双模式
 
-这个项目以 **原版网站 main 分支的 `site/` 文件为唯一界面来源**。Windows 桌面程序使用 WinForms 作为启动宿主，通过微软 Edge WebView2 显示**同一份 index.html / style.css / game.js / story.js 和全部 12 张 WebP 素材**。没有重新绘制一个低保真“仿网页版”窗口，不对原有网站文件做任何修改。
+这是原版网页视觉小说的 Windows 桌面封装（.NET 8 WinForms + Microsoft Edge WebView2），不是重画的粗糙桌面 UI。发布包中 www/ 的所有文件直接来自正式版 main 分支的 site/；原版 1600×900 设计、全部故事与 CG 不做删减。
 
-**实现方式说明：这是 Windows 原生 EXE 托管 WebView2 的桌面版，页面本身仍用浏览器排版引擎渲染。它不是不依赖 WebView 的纯 C++ 自绘引擎。** 选择 WebView2 是为了保证原版 1600×900 布局、立绘、渐变、字体、动画和按钮交互忠实于网站。
+## 模式选择（默认完全离线）
 
-## Windows 10 x64 运行要求
+每次启动默认选择标题页底部「离线 · 完整剧情」：
 
-- Windows 10 64 位，建议至少 1920×1080 显示器；内部画布仍固定 1600×900，窗口按画面大小自动等比缩放。
-- 已安装 **Microsoft Edge WebView2 Evergreen Runtime**。大多数 Win10 电脑有预装，如果启动时提示找不到运行时，请访问微软官方安装页：
-  https://developer.microsoft.com/microsoft-edge/webview2/
-- **不必单独安装 .NET 8**：GitHub Actions 使用 self-contained publish。
-- 标题、菜单、CG、自动播放、回忆鉴赏、原版实时合成 BGM 的视觉和实现均来自现有网页。字体仍沿用 `style.css` 对 Google Noto Serif/Sans 的在线引用；离线环境会使用系统后备字体，届时字形可能不完全相同。
+- 不联网、不需要 DeepSeek API Key、不消耗 API 配额。
+- 使用最新原版的十个章节片段、共同篇、关系积累分支、三位女主的路线以及六种原版结局。
+- 保留原版六槽位存读档、自动续读、对白回看、自动播放、已读快进、结局鉴赏、设置、背景音乐、场景人物动画与文字渐显。
+- 通过最新网页原有的游戏函数处理剧情，未重新实现删减版状态机。
+- 离线存档使用原作 natsuday-v2- 命名空间；AI 记录存储在独立命名空间，不会覆盖离线进度。
 
-## 下载可执行程序
+仅当你主动点击「在线 · AI 自由对话」并开始新游戏时，才进入在线模式：
 
-1. 打开 https://github.com/ZhongYeMay/galgame/actions/workflows/windows-x64.yml
-2. 选择成功的 **Windows 10 x64 desktop release** 运行。
-3. 在 Artifacts 下载 `MayosSummer-Win10-x64`，解压 ZIP。
-4. 启动 `MayosSummer.exe`，**整个文件夹应保持完整**。不要单独把 EXE 拿走：`www/` 包含所有本地原版素材。
+- 女主由 DeepSeek 主动生成开场与后续新话题，玩家自由填写答案。
+- F1/F2/F3 选角色，F4 请求女主主动发言，Enter 发送。
+- API 设置通过 Windows 原生密码输入框提供临时测试 Key，或者由本机 DEEPSEEK_API_KEY 环境变量读取。
+- Key 不交给网页 JavaScript、存档或日志。
+- 六个独立 AI 文字存档槽可用，但读档后模型上下文重新建立。
+- AI 自由对话目前不负责原版六结局判定。想玩完整正式剧情，请使用离线模式。
 
-当前该发布包是否成功生成，要以 GitHub Actions 实际状态为准。未通过构建时不能认为已有可运行 exe。
+两个模式在返回标题页后切换，不会修改正式版网页，也不在离线模式发送 API 请求。此前贴在聊天中的测试 Key 已曝光，建议在 DeepSeek 控制台撤销并更换。
 
-## AI 玩法（Windows 桌面独有）
+## Windows 安装
 
-- 保留网页版完整标题页的所有视觉设计；点击「开始新的夏天」后进入 AI 自由对话。
-- AI 由女主主动开场，每回合玩家直接在原版风格的半透明选项区域**自由填写回复**，没有固定答案选项。后续由 DeepSeek 即时生成新台词。
-- F1、F2、F3 切换澪、凪、栞；F4 或「让她先说」让她主动提出新话题；F11 切换最大化/窗口模式；Alt+F4 退出游戏。
-- LOG 回看及 SAVE/LOAD 六个槽位在 Windows AI 模式下记录文字。每位角色上下文分离，最多保留 12 条模型上下文；读取存档后显示文字记录，AI 上下文从当前角色重新开始。
-- 图像、场景、人物、音乐等全部继续使用原版样式和素材，玩家回复框使用原版紫色半透明边框与排版。
-- 原版三路线、六结局脚本和资源没有被删除；**当前 AI 模式不负责生成原版六结局判定**。因此它是完整原画的自由对话模式，不应误称已经将 AI 接入每个原版结局节点。
+访问 https://github.com/ZhongYeMay/galgame/actions/workflows/windows-x64.yml ，选择成功的 Windows x64 构建，从 Artifacts 下载 MayosSummer-Win10-x64 压缩包。解压后运行 MayosSummer.exe；请保留 www/ 和 desktop-ai.js 等文件，不要只复制 EXE。
 
-## DeepSeek 测试密钥（绝不随包发布）
+需要 Windows 10 64 位和 Microsoft Edge WebView2 Runtime。多数 Edge 用户已装，但不保证；如缺少，从微软官方网站下载安装：https://developer.microsoft.com/microsoft-edge/webview2/ 。
 
-首次进入 AI 模式，点击「API 设置」：会弹出 Windows 原生**密码遮罩输入框**。粘贴测试 Key 并确认即可。密钥只保存在当前进程内存中，不提供给 HTML/JavaScript，也不会保存到 GitHub、日志或 localStorage。
+采用 .NET 8 自包含打包，无需额外安装 .NET。原版网页字体使用 Google Noto，完全断网且系统没有 Noto 字体时会使用 Windows 字体回退；画面素材和布局仍保持原版。
 
-另一个选择是从本机终端预先设置环境变量 `DEEPSEEK_API_KEY`，由游戏程序在本地读取，网页脚本永远拿不到变量的值。
+## 测试说明
 
-完成设置后点击游戏内的「测试连接」，Windows 宿主会调用 DeepSeek 的官方 Chat Completions 接口，验证授权、网络与模型是否可用。测试将产生少量 API token 开销。默认模型 `deepseek-flash`，关闭深度思考；每轮最多 200 生成 token，单请求超时 35 秒。
+CI 先证明 Windows 分支的 site/ 与正式 main 完全一致，检查全部十二张 WebP 原始资源，然后通过真实 Microsoft Edge headless 浏览器验证十个章节、六个原版结局、离线存档、AI 模拟对话以及两种存档相互隔离，再编译 self-contained Win10 x64 EXE。
 
-**此前在聊天中展示过的测试密钥不应再用于长期正式发布。** 测试完成请到 DeepSeek 控制台撤销并创建新 Key。代码、提交和构建工作流不会包含任何真实 API Key。测试脚本不做在线调用；不能把离线编译验证当作真实 API 验收。
+浏览器测试中 AI 返回的是模拟响应，不消耗真实 DeepSeek Token；真实 Windows 10 EXE 图形窗口及付费 API 仍须单独验证。只有 GitHub Actions 成功生成的 ZIP 才视为可交付构建，不把提交代码等同于通过测试。
 
-## 本地编译（需要联网下载 NuGet 依赖）
-
-```powershell
-dotnet restore windows/MayosSummer.Win/MayosSummer.Win.csproj --runtime win-x64
-dotnet publish windows/MayosSummer.Win/MayosSummer.Win.csproj -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -o dist/MayosSummer-Win10-x64
-```
-
-CI 对 `site/` 执行原始文件差异验证，检查十二张原图以及 WebView2 发布目录完整性。当前不具备在本地 Linux 容器运行 Windows 10 GUI 的能力；自动构建是否通过与 Windows 图形验收必须分别核实。
-
-## 隐私
-
-AI 回复只使用当前角色背景、玩家主动发送的文字以及近期上下文。AI 模式文字存档存放在 Windows WebView2 本地用户数据目录（本机）；请勿在对话中输入个人秘密。关闭程序后内存中的 API Key 消失，但在 DeepSeek 后台撤销 Key 仍需用户完成。
+Windows 版本独立维护在 windows-10-x64 分支，正式网页 main 分支不被修改。
