@@ -1,0 +1,52 @@
+name: Publish Android APK direct download
+
+on:
+  push:
+    branches: [android-apk]
+    paths:
+      - .github/workflows/publish-android-download.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch verified signed-debug APK from successful CI
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 43055945728
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: MayosSummer-Android-APK
+          path: dist
+      - name: Check APK checksum and archive health
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/MayosSummer-Android-Complete-DualMode.apk
+          ACTUAL="$(sha256sum dist/MayosSummer-Android-Complete-DualMode.apk | cut -d " " -f 1)"
+          EXPECTED="815c236b7f43ce187c195348b9b7185b0f0ff193d798add8ee4634c5e40eb766"
+          test "$ACTUAL" = "$EXPECTED"
+          unzip -t dist/MayosSummer-Android-Complete-DualMode.apk | tail -n 1
+      - name: Publish public prerelease APK asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="android-v1.0.0-test"
+          FILE="dist/MayosSummer-Android-Complete-DualMode.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$FILE" --clobber
+          else
+            gh release create "$TAG" "$FILE" \
+              --target android-apk \
+              --title "MayosSummer Android dual-mode APK (test)" \
+              --prerelease \
+              --notes "Android 8.0+ test APK. Complete offline story is the default; optional user-provided DeepSeek AI mode requires internet. Compiled and archive-verified, but not yet verified on a physical phone. Debug-signed for sideload testing. SHA-256: 815c236b7f43ce187c195348b9b7185b0f0ff193d798add8ee4634c5e40eb766."
+          fi
+          gh release view "$TAG" --json url,assets
