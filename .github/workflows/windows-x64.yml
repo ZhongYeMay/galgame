@@ -32,6 +32,11 @@ jobs:
         run: |
           node --check windows/desktop-ai.js
           node windows/verify-source.cjs
+      - name: Run offline six-ending + dual-mode browser regression
+        shell: pwsh
+        run: |
+          npm install --no-save --prefix windows playwright-core@1.56.1
+          node windows/test-dual-mode.cjs
       - name: Publish self-contained Windows 10 x64 application
         shell: pwsh
         run: |
@@ -52,6 +57,13 @@ jobs:
           } | ConvertTo-Json -Depth 3 | Set-Content "$root/site-sha256.json" -Encoding UTF8
           Copy-Item windows/WINDOWS.md "$root/README-WINDOWS.txt"
           Compress-Archive -Path "$root/*" -DestinationPath MayosSummer-Win10-x64.zip -CompressionLevel Optimal
+      - name: Upload original-interface regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-DualMode-Gameplay-Tests
+          if-no-files-found: warn
+          path: windows/test-output/
       - uses: actions/upload-artifact@v4
         with:
           name: MayosSummer-Win10-x64
