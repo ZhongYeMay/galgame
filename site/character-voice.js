@@ -280,6 +280,9 @@
         stop();return originalEnding.apply(this,args);
       };
     }
+    window.addEventListener('mayos:ai-exit',()=>{
+      stop();lastNode='';
+    });
     window.addEventListener('mayos:ai-reply',event=>{
       const detail=event.detail||{};
       if(!CONFIG[detail.route])return;
