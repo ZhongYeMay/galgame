@@ -13,9 +13,13 @@
 
   function deliver(data) {
     const copy = Object.freeze({...data});
-    for (const fn of handlers) {
-      try { fn({data:copy}); } catch (_) {}
-    }
+    // Mirror the asynchronous native WebView bridge: callbacks must run
+    // AFTER the desktop adapter has recorded the request ID.
+    queueMicrotask(() => {
+      for (const fn of handlers) {
+        try { fn({data:copy}); } catch (_) {}
+      }
+    });
   }
   function post(type, id, route, details={}) {
     deliver({type,id,route,...details});
