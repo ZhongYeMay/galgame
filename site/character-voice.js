@@ -29,6 +29,110 @@
   let lastNode='',waitingForVoice=false,hasPlayedOnce=false;
   let lastError='';
   const listeners=[];
+  // Display true per-file download progress. Do not mislabel the last file
+  // reaching 100% as the whole neural model being ready.
+  const progressState={active:false,percent:null,kind:'',label:'',detail:''};
+  let aggregateProgress=false,progressHideTimer=null;
+  function percentOf(info){
+    if(Number.isFinite(info?.progress))return Math.max(0,Math.min(100,info.progress));
+    if(Number.isFinite(info?.loaded)&&Number.isFinite(info?.total)&&info.total>0)
+      return Math.max(0,Math.min(100,info.loaded/info.total*100));
+    return null;
+  }
+  function shortFile(name){
+    return String(name||'').split('/').pop().split('\\').pop().slice(0,55)||'语音模型文件';
+  }
+  function progressUpdate(kind,label,percent=null,detail='',active=true){
+    progressState.active=active;
+    progressState.kind=kind;
+    progressState.label=label;
+    progressState.percent=Number.isFinite(percent)?percent:null;
+    progressState.detail=detail;
+    for(const container of document.querySelectorAll('[data-voice-progress]')){
+      container.hidden=!active;
+      const title=container.querySelector('[data-voice-progress-label]');
+      const current=container.querySelector('[data-voice-progress-percent]');
+      const line=container.querySelector('[data-voice-progress-fill]');
+      const track=container.querySelector('[role=progressbar]');
+      const foot=container.querySelector('[data-voice-progress-detail]');
+      if(title)title.textContent=label;
+      if(current)current.textContent=progressState.percent===null?'':Math.round(progressState.percent)+'%';
+      if(foot)foot.textContent=detail;
+      if(track){
+        track.classList.toggle('indeterminate',progressState.percent===null);
+        if(progressState.percent===null)track.removeAttribute('aria-valuenow');
+        else track.setAttribute('aria-valuenow',String(Math.round(progressState.percent)));
+        track.setAttribute('aria-valuetext',progressState.percent===null?
+          label:(kind==='total'?'总下载进度 ':'当前文件 ')+Math.round(progressState.percent)+'%');
+      }
+      if(line)line.style.width=progressState.percent===null?'38%':progressState.percent+'%';
+    }
+    signal('progress',{progress:{...progressState}});
+  }
+  function receiveProgress(info){
+    if(!info||typeof info!=='object')return;
+    const pct=percentOf(info);
+    if(info.status==='progress_total'&&pct!==null){
+      aggregateProgress=true;
+      progressUpdate('total','模型文件下载中',pct,
+        Number.isFinite(info.loaded)&&Number.isFinite(info.total)?
+        (info.loaded/1048576).toFixed(1)+' / '+(info.total/1048576).toFixed(1)+' MB':'整体下载进度');
+      return;
+    }
+    if(aggregateProgress)return;
+    if(info.status==='progress'&&pct!==null){
+      progressUpdate('file','下载：'+shortFile(info.file),pct,
+        '当前文件进度（不是整个模型）');
+    }else if(info.status==='download'||info.status==='initiate'){
+      progressUpdate('initializing','准备：'+shortFile(info.file),null,'正在连接模型资源…');
+    }else if(info.status==='done'||info.status==='ready'){
+      progressUpdate('initializing','正在准备角色声音',null,'下载完成的文件正在初始化…');
+    }
+  }
+  function createProgress(container,id){
+    if(!container)return;
+    const panel=document.createElement('section');
+    panel.id=id;
+    panel.className=id==='voiceLoadOverlay'?'voice-load-overlay':'voice-load-settings';
+    panel.dataset.voiceProgress='';
+    panel.hidden=!progressState.active;
+    panel.setAttribute('aria-label','角色自然声音加载状态');
+    const heading=document.createElement('div');
+    heading.className='voice-load-heading';
+    const label=document.createElement('span');label.dataset.voiceProgressLabel='';
+    const pct=document.createElement('strong');pct.dataset.voiceProgressPercent='';
+    heading.append(label,pct);
+    const bar=document.createElement('div');
+    bar.className='voice-load-track indeterminate';
+    bar.setAttribute('role','progressbar');
+    bar.setAttribute('aria-label','语音模型加载进度');
+    bar.setAttribute('aria-valuemin','0');
+    bar.setAttribute('aria-valuemax','100');
+    const fill=document.createElement('div');fill.className='voice-load-fill';
+    fill.dataset.voiceProgressFill='';bar.append(fill);
+    const detail=document.createElement('small');detail.dataset.voiceProgressDetail='';
+    panel.append(heading,bar,detail);
+    container.append(panel);
+    return panel;
+  }
+  function renderProgressState(){
+    progressUpdate(progressState.kind,progressState.label,
+      progressState.percent,progressState.detail,progressState.active);
+  }
+  function beginProgress(){
+    clearTimeout(progressHideTimer);
+    aggregateProgress=false;
+    progressUpdate('initializing','正在加载角色声音',null,'初始化自然语音引擎…');
+  }
+  function endProgress(ok){
+    if(ok){
+      progressUpdate('ready','三位角色声音已就绪',100,'模型已加载，可以播放自然配音');
+    }else{
+      progressUpdate('error','声音加载失败',null,'请检查网络和设备性能后重试');
+    }
+    clearTimeout(progressHideTimer);
+    progressHideTimer=setTimeout(()=>progressUpdate('', '', null, '', false),ok?2400:5000);
+  }
 
   function signal(type,extra={}) {
     const event={type,enabled,ready:!!engine,loading:!!loading,error:lastError,...extra};
@@ -62,6 +166,7 @@
     if(engine)return engine;
     if(loading)return loading;
     lastError='';
+    beginProgress();
     loading=(async()=>{
       // Browser-only, no script registered as a system/default voice.
       if(!('WebAssembly' in window))throw new Error('此浏览器不支持神经语音推理。');
@@ -72,24 +177,31 @@
       const options={
         device,
         dtype:device==='webgpu'?'q4f16':'fp32',
-        voicePath:VOICE_PATH
+        voicePath:VOICE_PATH,
+        progress_callback:receiveProgress
       };
       try{
         engine=await module.KokoroTTS.from_pretrained(MODEL,options);
       }catch(error){
         if(device!=='webgpu')throw error;
         // GPU drivers differ by browser; WebAssembly uses the same voices.
+        aggregateProgress=false;
+        progressUpdate('initializing','正在切换兼容加载方式',null,'尝试 WebAssembly 模式…');
         engine=await module.KokoroTTS.from_pretrained(MODEL,{
-          device:'wasm',dtype:'fp32',voicePath:VOICE_PATH
+          device:'wasm',dtype:'fp32',voicePath:VOICE_PATH,
+          progress_callback:receiveProgress
         });
       }
       return engine;
     })();
     signal('loading');
     try{
-      return await loading;
+      const result=await loading;
+      endProgress(true);
+      return result;
     }catch(error){
       lastError='自然语音模型不可用，请检查网络或设备性能。';
+      endProgress(false);
       signal('error');
       throw error;
     }finally{
@@ -152,6 +264,8 @@
   function addControls(){
     const bar=document.querySelector('.top-right');
     if(!bar||$('voiceBtn'))return;
+    createProgress($('stage'),'voiceLoadOverlay');
+    renderProgressState();
     const button=document.createElement('button');
     button.id='voiceBtn';
     button.type='button';
@@ -241,6 +355,8 @@
     status.id='voiceModelStatus';
     status.textContent=engine?'本机神经语音已就绪':lastError||'尚未加载语音模型';
     grid.append(status);
+    createProgress($('modalBody'),'voiceLoadSettings');
+    renderProgressState();
     const handler=(event)=>{
       if(!status.isConnected){document.removeEventListener('mayos:voice-status',handler);return;}
       status.textContent=event.detail.error||(event.detail.loading?'正在下载并初始化自然语音模型…':
@@ -294,7 +410,7 @@
     window.MayosCharacterVoice=Object.freeze({
       getProfiles:()=>Object.fromEntries(Object.entries(CONFIG).map(([id,value])=>
         [id,{name:value.name,voice:value.voice,speed:value.speed}])),
-      getStatus:()=>({enabled,ready:!!engine,loading:!!loading}),
+      getStatus:()=>({enabled,ready:!!engine,loading:!!loading,progress:{...progressState}}),
       preview:(id)=>CONFIG[id]?playText(CONFIG[id].name,previews[id],id,true):Promise.resolve(false),
       stop
     });
