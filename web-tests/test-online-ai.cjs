@@ -48,7 +48,7 @@ async function main(){
           '  window.__voiceCalls.push({text,voice:options.voice,speed:options.speed});',
           '  return {toBlob:()=>new Blob([new Uint8Array(44)],{type:"audio/wav"})}',
           '}',
-          '}}};'
+          '}}}};'
         ].join('')
       }));
     await page.route('https://api.deepseek.com/**',route=>{
