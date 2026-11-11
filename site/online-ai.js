@@ -417,6 +417,35 @@
     updateModeButtons();
   }
 
+  // The old footer selector is too small on phones: expose the optional
+  // online mode in the actual main menu, without changing original actions.
+  function addTitleAIStart() {
+    const actions=byId('titleScreen')?.querySelector('.title-actions');
+    if(!actions||byId('startAIStory'))return;
+    const button=document.createElement('button');
+    button.type='button';
+    button.id='startAIStory';
+    button.className='win-ai-start';
+    button.innerHTML='<span>オンライン</span>AI 自由对话 · 女主主动说话';
+    button.setAttribute('aria-label','进入在线 AI 自由对话模式');
+    button.style.cssText='border:1px solid #bda0e277;background:linear-gradient(90deg,#9e8acd22,transparent);margin:6px 0';
+    button.onclick=()=>{
+      if(active) {toast('请先返回标题，再开启 AI 对话。');return;}
+      selectedMode='ai';
+      const footer=byId('winModeSelector');
+      footer?.querySelectorAll('button').forEach(b=>
+        b.setAttribute('aria-pressed',String(b.dataset.mode==='ai')));
+      start('mio');
+      // Show the credential modal proactively.  Text and all game visuals
+      // stay inside the original page. The key is session-only.
+      message('key-status');
+      if(!ready)message('set-key');
+    };
+    const originalStart=actions.querySelector('.start-button');
+    originalStart?.insertAdjacentElement('afterend',button);
+    if(!originalStart)actions.prepend(button);
+  }
+
   function restoreTranscript(saved) {
     turns=Array.isArray(saved.turns)
       ? saved.turns.filter(t=>t&&typeof t.who==='string'&&typeof t.text==='string').slice(-80)
@@ -438,6 +467,7 @@
     originalSkip=window.skipRead;
     originalHide=window.toggleUI;
     addModeSelector();
+    addTitleAIStart();
     window.newGame=()=>{
       if(selectedMode==='offline') return originalNewGame();
       start('mio');
@@ -487,7 +517,13 @@
     host.addEventListener('message',e=>{
       const d=e.data;if(!d||typeof d!=='object')return;
       if(d.type==='key-status'){
-        ready=!!d.ready;if(ready)toast('DeepSeek 密钥已在 Windows 本地就绪。');
+        ready=!!d.ready;
+        if(ready){
+          toast('DeepSeek 已连接，可以开始自由对话。');
+          // The first AI line may have failed before a key was supplied.
+          // Automatically retry that opening when the key is now present.
+          if(active&&pending===null&&turns.length===0)speak(true);
+        }
       }
       if(d.type==='reply')result(d);
       if(d.type==='error'&&d.id===pending)fail(d.message||'连接失败');
