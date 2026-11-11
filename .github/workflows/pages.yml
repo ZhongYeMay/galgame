@@ -23,6 +23,7 @@ jobs:
           node --check site/story.js
           node --check site/game.js
           node --check site/online-ai.js
+          node --check site/character-voice.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload game and AI artwork
