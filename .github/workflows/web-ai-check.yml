@@ -24,6 +24,7 @@ jobs:
           node --check site/story.js
           node --check site/game.js
           node --check site/online-ai.js
+          node --check site/character-voice.js
       - name: Install Edge browser test runtime
         shell: pwsh
         run: npm install --prefix web-tests --no-save playwright-core@1.56.1
