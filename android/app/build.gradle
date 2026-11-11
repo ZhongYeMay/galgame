@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.zhongyemay.summer'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.zhongyemay.summer'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // Use the exact latest site/ files; never regenerate a simplified game.
+    sourceSets {
+        main {
+            assets.srcDirs += [
+                file('../../site'),
+                layout.buildDirectory.dir('generated/desktop-ai-assets').get().asFile
+            ]
+        }
+    }
+}
+
+def prepareDesktopAI = tasks.register('prepareDesktopAI', Copy) {
+    from(rootProject.file('../windows/desktop-ai.js'))
+    into(layout.buildDirectory.dir('generated/desktop-ai-assets'))
+}
+tasks.named('preBuild') {
+    dependsOn(prepareDesktopAI)
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.16.0'
+}
