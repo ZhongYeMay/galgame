@@ -1,0 +1,32 @@
+name: Test complete website and optional online AI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-e2e:
+    runs-on: windows-2022
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check original story and online script
+        shell: pwsh
+        run: |
+          node --check site/story.js
+          node --check site/game.js
+          node --check site/online-ai.js
+      - name: Install Edge browser test runtime
+        shell: pwsh
+        run: npm install --prefix web-tests --no-save playwright-core@1.56.1
+      - name: Verify offline-original and opt-in DeepSeek mode
+        shell: pwsh
+        run: node web-tests/test-online-ai.cjs
