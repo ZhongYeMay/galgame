@@ -1,0 +1,32 @@
+name: Diagnose actual voice loading in Edge
+on:
+  push:
+    branches: [main]
+    paths:
+      - web-tests/test-real-voice-load.cjs
+      - .github/workflows/voice-live-diagnostic.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-live-voice:
+    runs-on: windows-2022
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Edge probe
+        shell: pwsh
+        run: npm install --prefix web-tests --no-save playwright-core@1.56.1
+      - name: Real network, real model and browser console diagnostic
+        shell: pwsh
+        run: node web-tests/test-real-voice-load.cjs
+      - name: Upload diagnostic including exact failed resource URLs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Voice-Live-Network-Diagnostics
+          path: web-tests/diagnostics/
+          if-no-files-found: warn
