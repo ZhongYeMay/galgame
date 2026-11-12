@@ -26,6 +26,13 @@ async function main(){
     await page.route('https://fonts.gstatic.com/**',r=>r.abort());
     await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded',timeout:30000});
     await page.locator('#voiceBtn').waitFor({timeout:15000});
+    await page.evaluate(()=>{
+      window.__realVoiceEvents=[];
+      document.addEventListener('mayos:voice-status',e=>{
+        window.__realVoiceEvents.push({type:e.detail.type,
+          error:e.detail.error||'',progress:e.detail.progress?.percent});
+      });
+    });
     report.probes.push({type:'boot',status:'ok'});
     // Diagnostic test executes the real published voice module, real network,
     // real CPU/GPU inference, and actual browser audio (no mocks).
@@ -39,8 +46,27 @@ async function main(){
       await page.waitForTimeout(5000);
     }
     if(report.result==='INCOMPLETE')report.result='TIMEOUT';
+    if(report.result==='MODEL_READY'){
+      try{
+        await page.evaluate(()=>openSettings());
+        await page.locator('#modalBody').getByRole('button',{name:'白石澪'}).click();
+        const mark=Date.now();
+        while(Date.now()-mark<80000){
+          const state=await page.evaluate(()=>({status:window.MayosCharacterVoice.getStatus(),
+            events:window.__realVoiceEvents.slice(-10)}));
+          if(state.events.some(x=>x.type==='playing')){report.result='ACTUAL_AUDIO_GENERATED';break;}
+          if(state.events.some(x=>x.type==='error'&&x.error)){report.result='VOICE_GENERATION_ERROR';report.voiceError=state.status.error;break;}
+          await page.waitForTimeout(4000);
+        }
+      }catch(error){report.result='VOICE_GENERATION_ERROR';report.voiceError=String(error);}
+    }
+    report.finalStatus=await page.evaluate(()=>({
+      status:window.MayosCharacterVoice.getStatus(),
+      events:window.__realVoiceEvents.slice(-24),
+      visibleText:document.getElementById('voiceModelStatus')?.textContent
+    }));
     try{await page.screenshot({path:path.resolve(__dirname,'diagnostics','live-voice-last.png')});}catch(_){}
-    console.log('DIAGNOSIS '+JSON.stringify(report).slice(0,20000));
+    console.log('DIAGNOSIS '+JSON.stringify(report).slice(0,23000));
     save();
   }finally{await browser.close();await new Promise(r=>server.close(r));save();}
 }
