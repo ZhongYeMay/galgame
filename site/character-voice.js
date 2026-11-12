@@ -28,6 +28,7 @@
   let revision=0,player=null,currentUrl=null;
   let lastNode='',waitingForVoice=false,hasPlayedOnce=false;
   let lastError='';
+  let backendDescription='';
   const listeners=[];
   // Display true per-file download progress. Do not mislabel the last file
   // reaching 100% as the whole neural model being ready.
@@ -122,16 +123,50 @@
   function beginProgress(){
     clearTimeout(progressHideTimer);
     aggregateProgress=false;
-    progressUpdate('initializing','正在加载角色声音',null,'初始化自然语音引擎…');
+    progressUpdate('initializing','正在加载角色声音',null,'检查设备并准备自然语音引擎…');
+  }
+  function explainError(error){
+    const raw=String(error?.message||error||'未知错误');
+    if(/out.of.memory|memory.*(alloc|limit)|allocation failed/i.test(raw))
+      return '设备内存不足，无法初始化角色语音模型。';
+    if(/cache|quota|storage/i.test(raw))
+      return '浏览器存储空间不足或缓存失败，请释放站点空间后重试。';
+    if(/failed to fetch|network|timeout|http|404|403|cors/i.test(raw))
+      return '模型资源下载失败，请检查网络或模型服务可用性。';
+    if(/webgpu|adapter/i.test(raw))
+      return '设备的 GPU 不支持该语音后端，已尝试兼容模式。';
+    return '自然语音引擎初始化失败：'+raw.slice(0,145);
+  }
+  async function selectVoiceBackend(){
+    // navigator.gpu merely existing does NOT mean an adapter is available;
+    // older implementation downloaded the GPU model needlessly, then
+    // retried a 324 MB fp32 model which failed in low-storage browsers.
+    const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(!isMobile&&navigator.gpu?.requestAdapter){
+      try{
+        const adapter=await Promise.race([
+          navigator.gpu.requestAdapter({powerPreference:'low-power'}),
+          new Promise(resolve=>setTimeout(()=>resolve(null),2500))
+        ]);
+        if(adapter?.features?.has('shader-f16')){
+          backendDescription='WebGPU · q4f16（约 166 MB）';
+          return {device:'webgpu',dtype:'q4f16'};
+        }
+      }catch(_){}
+    }
+    backendDescription='WebAssembly · q8（约 127 MB）';
+    return {device:'wasm',dtype:'q8'};
   }
   function endProgress(ok){
     if(ok){
-      progressUpdate('ready','三位角色声音已就绪',100,'模型已加载，可以播放自然配音');
+      progressUpdate('ready','角色语音已就绪',100,backendDescription+' · 可以播放自然配音');
     }else{
-      progressUpdate('error','声音加载失败',null,'请检查网络和设备性能后重试');
+      progressUpdate('error','声音加载失败',null,lastError||'请检查网络后重试');
     }
     clearTimeout(progressHideTimer);
-    progressHideTimer=setTimeout(()=>progressUpdate('', '', null, '', false),ok?2400:5000);
+    // Failure stays visible until the next retry; users should not have
+    // to guess what went wrong after the overlay disappears.
+    if(ok)progressHideTimer=setTimeout(()=>progressUpdate('', '', null, '', false),3300);
   }
 
   function signal(type,extra={}) {
@@ -173,22 +208,24 @@
       const module=await import(LIB);
       if(typeof module.KokoroTTS?.from_pretrained!=='function')
         throw new Error('角色声音模块未加载成功。');
-      const device=navigator.gpu?'webgpu':'wasm';
+      const backend=await selectVoiceBackend();
+      progressUpdate('initializing','正在初始化神经语音',null,backendDescription);
       const options={
-        device,
-        dtype:device==='webgpu'?'q4f16':'fp32',
+        ...backend,
         voicePath:VOICE_PATH,
         progress_callback:receiveProgress
       };
       try{
         engine=await module.KokoroTTS.from_pretrained(MODEL,options);
       }catch(error){
-        if(device!=='webgpu')throw error;
-        // GPU drivers differ by browser; WebAssembly uses the same voices.
+        if(backend.device!=='webgpu')throw error;
+        // A real adapter may still reject a particular driver/runtime.
+        // Fall back to 127 MB q8, NEVER the previous 324 MB fp32 download.
         aggregateProgress=false;
-        progressUpdate('initializing','正在切换兼容加载方式',null,'尝试 WebAssembly 模式…');
+        backendDescription='WebAssembly · q8（约 127 MB）';
+        progressUpdate('initializing','切换到兼容语音模型',null,backendDescription);
         engine=await module.KokoroTTS.from_pretrained(MODEL,{
-          device:'wasm',dtype:'fp32',voicePath:VOICE_PATH,
+          device:'wasm',dtype:'q8',voicePath:VOICE_PATH,
           progress_callback:receiveProgress
         });
       }
@@ -200,7 +237,8 @@
       endProgress(true);
       return result;
     }catch(error){
-      lastError='自然语音模型不可用，请检查网络或设备性能。';
+      lastError=explainError(error);
+      console.warn('[夏日未寄/VOICE] 角色语音加载失败:',error);
       endProgress(false);
       signal('error');
       throw error;
@@ -285,7 +323,7 @@
         const d=(typeof node!=='undefined'&&typeof STORY!=='undefined')?STORY[node]:null;
         if(d&&typeof mode!=='undefined'&&mode==='play')void playText(d.who,d.text,d.route);
         else notify('自然角色语音已就绪，开始剧情或在设置中试听。');
-      }catch(_){ enabled=false;signal('disabled'); }
+      }catch(_){ enabled=false;signal('disabled'); notify(lastError||'角色声音加载失败，请检查网络。'); }
     };
     bar.insertBefore(button,bar.querySelector('button:last-of-type'));
     listeners.push(state=>{
@@ -410,7 +448,8 @@
     window.MayosCharacterVoice=Object.freeze({
       getProfiles:()=>Object.fromEntries(Object.entries(CONFIG).map(([id,value])=>
         [id,{name:value.name,voice:value.voice,speed:value.speed}])),
-      getStatus:()=>({enabled,ready:!!engine,loading:!!loading,progress:{...progressState}}),
+      getStatus:()=>({enabled,ready:!!engine,loading:!!loading,
+        error:lastError,backend:backendDescription,progress:{...progressState}}),
       preview:(id)=>CONFIG[id]?playText(CONFIG[id].name,previews[id],id,true):Promise.resolve(false),
       stop
     });
