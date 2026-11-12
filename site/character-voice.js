@@ -26,6 +26,84 @@
 
   let enabled=false,engine=null,loading=null,volume=.85;
   let revision=0,player=null,currentUrl=null;
+  const isIOS=/iPad|iPhone|iPod/i.test(navigator.userAgent)||
+    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  let voiceAudioContext=null,voiceAudioSource=null,voiceGain=null;
+  let audioUnlocked=false,pendingAudio=null;
+  function updateUnlockButton(){
+    const unlock=$('voiceAudioUnlock');
+    if(unlock)unlock.hidden=!isIOS||audioUnlocked;
+  }
+  function unlockAudio(){
+    // Must execute directly from a trusted click/tap: asynchronous TTS
+    // generation loses iOS's transient playback authorization.
+    if(!isIOS){audioUnlocked=true;return;}
+    const AudioContextCtor=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextCtor){notify('此浏览器不支持角色语音播放。');return;}
+    try{
+      if(!voiceAudioContext){
+        voiceAudioContext=new AudioContextCtor();
+        voiceGain=voiceAudioContext.createGain();
+        voiceGain.gain.value=volume;
+        voiceGain.connect(voiceAudioContext.destination);
+      }
+      // A silent frame, scheduled DURING the click, unlocks Web Audio
+      // without switching to robotic speech or audible placeholder voices.
+      const silent=voiceAudioContext.createBuffer(1,1,voiceAudioContext.sampleRate);
+      const source=voiceAudioContext.createBufferSource();
+      source.buffer=silent;source.connect(voiceGain);source.start(0);
+      void voiceAudioContext.resume().then(()=>{
+        audioUnlocked=voiceAudioContext.state==='running';
+        updateUnlockButton();
+        if(audioUnlocked&&pendingAudio){
+          const queued=pendingAudio;pendingAudio=null;
+          void playBlobAudio(queued.blob,queued.revision,queued.who);
+        }
+      }).catch(()=>{
+        audioUnlocked=false;updateUnlockButton();
+      });
+    }catch(error){
+      audioUnlocked=false;updateUnlockButton();
+      console.warn('[夏日未寄/VOICE] Safari audio unlock:',error);
+    }
+  }
+  function showUnlock(){
+    if(!isIOS)return;
+    audioUnlocked=false;
+    updateUnlockButton();
+    notify('iPhone 浏览器要求手动启用声音，请点击「启用声音」后播放。');
+  }
+  async function playBlobAudio(blob,ownRevision,who){
+    if(isIOS){
+      if(!voiceAudioContext||voiceAudioContext.state!=='running'){
+        pendingAudio={blob,revision:ownRevision,who};
+        showUnlock();return false;
+      }
+      const buffer=await voiceAudioContext.decodeAudioData(await blob.arrayBuffer());
+      if(ownRevision!==revision)return false;
+      const source=voiceAudioContext.createBufferSource();
+      source.buffer=buffer;
+      source.connect(voiceGain);
+      voiceAudioSource=source;
+      source.onended=()=>{if(ownRevision===revision)stop();};
+      source.start(0);
+      hasPlayedOnce=true;signal('playing',{who});
+      return true;
+    }
+    currentUrl=URL.createObjectURL(blob);
+    player=new Audio(currentUrl);
+    player.volume=volume;
+    player.preload='auto';
+    player.onended=()=>{if(ownRevision===revision)stop();};
+    player.onerror=()=>{if(ownRevision===revision){stop();notify('这一句的角色音频无法播放。');}};
+    try{await player.play();}
+    catch(_){
+      if(ownRevision===revision)notify('浏览器拦截了音频播放，请再点击试听。');
+      return false;
+    }
+    if(ownRevision===revision){hasPlayedOnce=true;signal('playing',{who});}
+    return true;
+  }
   let lastNode='',waitingForVoice=false,hasPlayedOnce=false;
   let lastError='';
   let backendDescription='';
@@ -176,6 +254,12 @@
   }
   function stop(){
     revision++;
+    pendingAudio=null;
+    if(voiceAudioSource){
+      const src=voiceAudioSource;voiceAudioSource=null;
+      src.onended=null;try{src.stop();}catch(_){}
+      try{src.disconnect();}catch(_){}
+    }
     if(player){player.pause();player.onended=null;player.onerror=null;player.src='';player=null;}
     if(currentUrl){URL.revokeObjectURL(currentUrl);currentUrl=null;}
     signal('stop');
@@ -262,20 +346,7 @@
       if(ownRevision!==revision||(!enabled&&!force))return false;
       if(!output||typeof output.toBlob!=='function')
         throw new Error('模型未返回可以播放的音频。');
-      currentUrl=URL.createObjectURL(output.toBlob());
-      player=new Audio(currentUrl);
-      player.volume=volume;
-      player.preload='auto';
-      player.onended=()=>{if(ownRevision===revision)stop();};
-      player.onerror=()=>{if(ownRevision===revision){stop();notify('这一句的角色音频无法播放。');}};
-      try{
-        await player.play();
-      }catch(error){
-        if(ownRevision===revision)notify('浏览器拦截了自动播放，请再次点击「试听」或画面中的 VOICE 按钮。');
-        return false;
-      }
-      if(ownRevision===revision){hasPlayedOnce=true;signal('playing',{who});}
-      return true;
+      return await playBlobAudio(output.toBlob(),ownRevision,who);
     }catch(error){
       if(ownRevision!==revision)return false;
       lastError=error instanceof Error?error.message:'自然语音生成失败。';
@@ -304,12 +375,26 @@
     if(!bar||$('voiceBtn'))return;
     createProgress($('stage'),'voiceLoadOverlay');
     renderProgressState();
+    if(isIOS&&!$('voiceAudioUnlock')){
+      const unlock=document.createElement('button');
+      unlock.id='voiceAudioUnlock';
+      unlock.type='button';
+      unlock.textContent='启用声音';
+      unlock.setAttribute('aria-label','点击启用 iPhone 角色声音');
+      unlock.style.cssText='position:absolute;top:87px;right:425px;z-index:16;'+
+        'padding:11px 20px;background:#292744ee;border:1px solid #c6b5eb;'+
+        'color:#f9f2ff;letter-spacing:2px;font-size:13px';
+      unlock.onclick=unlockAudio;
+      $('stage').append(unlock);
+    }
+    updateUnlockButton();
     const button=document.createElement('button');
     button.id='voiceBtn';
     button.type='button';
     button.textContent='VOICE OFF';
     button.setAttribute('aria-label','开启角色专属自然配音');
     button.onclick=async()=>{
+      unlockAudio();
       if(enabled) {
         enabled=false;stop();signal('disabled');
         return;
@@ -366,6 +451,7 @@
     range.oninput=()=>{
       volume=Number(range.value)/100;
       if(player)player.volume=volume;
+      if(voiceGain)voiceGain.gain.value=volume;
     };
     volumeSetting.append(volLabel,range);grid.append(volumeSetting);
 
@@ -383,7 +469,7 @@
       btn.className='toggle-btn';
       btn.type='button';
       btn.textContent=profile.name.replace(/\s/g,'');
-      btn.onclick=()=>{void playText(profile.name,previews[id],id,true);};
+      btn.onclick=()=>{unlockAudio();void playText(profile.name,previews[id],id,true);};
       actions.append(btn);
     }
     preview.append(label,actions);grid.append(preview);
@@ -442,13 +528,21 @@
       if(!CONFIG[detail.route])return;
       if(enabled)void playText(CONFIG[detail.route].name,detail.text,detail.route);
     });
-    window.addEventListener('pagehide',stop);
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
+    window.addEventListener('pagehide',()=>{
+      stop();audioUnlocked=false;updateUnlockButton();
+    });
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden){
+        stop();
+        if(isIOS){audioUnlocked=false;updateUnlockButton();}
+      }
+    });
     // Exposed only for non-AI automated tests, not a credential endpoint.
     window.MayosCharacterVoice=Object.freeze({
       getProfiles:()=>Object.fromEntries(Object.entries(CONFIG).map(([id,value])=>
         [id,{name:value.name,voice:value.voice,speed:value.speed}])),
       getStatus:()=>({enabled,ready:!!engine,loading:!!loading,
+        audioUnlocked:!isIOS||audioUnlocked,iosAudio:isIOS,
         error:lastError,backend:backendDescription,progress:{...progressState}}),
       preview:(id)=>CONFIG[id]?playText(CONFIG[id].name,previews[id],id,true):Promise.resolve(false),
       stop
