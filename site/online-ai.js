@@ -5,6 +5,9 @@
  */
 (() => {
   'use strict';
+  // Native Windows/Android editions supply their own secure DeepSeek bridge.
+  // Never initialize a second public-web DeepSeek host inside those wrappers.
+  if(window.chrome?.webview || window.MayosNative)return;
   const handlers = [];
   const sessions = new Map();
   const validRoutes = new Set(['mio','nagi','shiori']);
