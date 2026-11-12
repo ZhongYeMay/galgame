@@ -1,0 +1,68 @@
+name: Generate lightweight original story voice clips
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/story-voice-pack.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  generate:
+    strategy:
+      fail-fast: false
+      matrix:
+        route: [mio, nagi, shiori]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install original Chinese neural voice model
+        shell: bash
+        run: |
+          npm install --prefix neural-test --no-save @uzen/kokoro-js@1.2.4
+          mkdir -p neural-test/voices
+          curl --retry 3 -fLsS "https://huggingface.co/onnx-community/Kokoro-82M-v1.1-zh-ONNX/resolve/main/voices/${{ matrix.route == 'mio' && 'zf_021' || matrix.route == 'nagi' && 'zf_070' || 'zf_083' }}.bin" \
+            -o "neural-test/voices/${{ matrix.route == 'mio' && 'zf_021' || matrix.route == 'nagi' && 'zf_070' || 'zf_083' }}.bin"
+          test -x /usr/bin/ffmpeg
+      - name: Synthesize and compress character dialogue
+        run: node neural-test/compile-dialogue.mjs ${{ matrix.route }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dialogue-${{ matrix.route }}
+          path: site/assets/voices/*.mp3
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: generate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dialogue-*
+          merge-multiple: true
+          path: site/assets/voices
+      - name: Audit voice coverage and publish lightweight manifest
+        shell: bash
+        run: |
+          node neural-test/create-dialogue-manifest.cjs
+          test $(find site/assets/voices -name '*.mp3' | wc -l) -gt 250
+          du -sh site/assets/voices
+      - name: Commit finished voice pack to GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "MayosSummer voice pack CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add site/assets/voices/
+          git commit -m "Publish lightweight prerecorded voices for full original story" || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
