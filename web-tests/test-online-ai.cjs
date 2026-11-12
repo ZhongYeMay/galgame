@@ -137,11 +137,27 @@ async function main(){
     assert.deepEqual(calls.map(x=>x.voice),
       ['zf_021','zf_070','zf_083']);
     assert.deepEqual(pageErrors,[]);
+    // iOS Chrome and Safari both use WebKit's gesture-restricted audio
+    // policy. Verify the explicit mobile unlock UI can resume WebAudio
+    // through a real trusted tap (rather than programmatic .click()).
+    const ios=await browser.newPage({
+      userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/133.0.0.0 Mobile/15E148 Safari/604.1',
+      viewport:{width:844,height:390},isMobile:true,hasTouch:true
+    });
+    await ios.route('https://fonts.googleapis.com/**',r=>r.abort());
+    await ios.route('https://fonts.gstatic.com/**',r=>r.abort());
+    await ios.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded'});
+    await ios.locator('#voiceAudioUnlock').waitFor();
+    await ios.evaluate(()=>{mobileEntered=true;fit();});
+    await ios.locator('#voiceAudioUnlock').click({force:true});
+    await ios.waitForFunction(()=>window.MayosCharacterVoice.getStatus().audioUnlocked,{timeout:10000});
+    assert.equal(await ios.evaluate(()=>window.MayosCharacterVoice.getStatus().iosAudio),true);
+    await ios.close();
     console.log(JSON.stringify({result:'PASS',original,offlineDefault:true,
       mockOnlineApiCalls:apiCalls,aiSaveIsolation:true,
       keyNotSaved:true,voiceProfiles,voiceSynthesisCalls:3,
       voiceProgressVerified:true,voiceProgressFilePercent:37,
-      genericBrowserTTS:false,errors:pageErrors}));
+      iOSAudioUnlockVerified:true,genericBrowserTTS:false,errors:pageErrors}));
   }finally{
     await browser.close();
     await new Promise(resolve=>server.close(resolve));
