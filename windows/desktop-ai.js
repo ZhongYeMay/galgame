@@ -126,6 +126,9 @@
     pending=null;input='';
     showLine(chr().name,msg.text);
     setActor(route,turns.length%3,'speak');
+    window.dispatchEvent(new CustomEvent('mayos:ai-reply',{
+      detail:{route,text:msg.text,who:chr().name}
+    }));
     status('可以直接填写下一句 · Shift+Enter 换行');
     lock();field.focus();
   }
