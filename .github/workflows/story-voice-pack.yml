@@ -28,7 +28,13 @@ jobs:
           mkdir -p neural-test/voices
           curl --retry 3 -fLsS "https://huggingface.co/onnx-community/Kokoro-82M-v1.1-zh-ONNX/resolve/main/voices/${{ matrix.route == 'mio' && 'zf_021' || matrix.route == 'nagi' && 'zf_070' || 'zf_083' }}.bin" \
             -o "neural-test/voices/${{ matrix.route == 'mio' && 'zf_021' || matrix.route == 'nagi' && 'zf_070' || 'zf_083' }}.bin"
-          test -x /usr/bin/ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+          command -v ffmpeg
+          ffmpeg -version | head -n 1
+          test -s "neural-test/voices/${{ matrix.route == 'mio' && 'zf_021' || matrix.route == 'nagi' && 'zf_070' || 'zf_083' }}.bin"
       - name: Synthesize and compress character dialogue
         run: node neural-test/compile-dialogue.mjs ${{ matrix.route }}
       - uses: actions/upload-artifact@v4
