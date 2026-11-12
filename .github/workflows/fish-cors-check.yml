@@ -1,0 +1,28 @@
+name: Probe Fish Audio browser CORS (no credentials)
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fish-cors-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Test preflight from GitHub Pages origin
+        shell: bash
+        run: |
+          set -e
+          curl -sS -D /tmp/headers -o /tmp/body -X OPTIONS \
+            "https://api.fish.audio/v1/tts" \
+            -H "Origin: https://zhongyemay.github.io" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: authorization,content-type,model" \
+            --max-time 20 || true
+          sed -n '1,28p' /tmp/headers
+          echo "-- preflight CORS advertised --"
+          grep -i '^access-control-' /tmp/headers || true
+          echo "-- HTTP response status --"
+          sed -n '1p' /tmp/headers
