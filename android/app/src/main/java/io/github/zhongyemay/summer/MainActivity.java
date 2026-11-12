@@ -124,9 +124,15 @@ public final class MainActivity extends Activity {
                     WebResourceResponse resource = assets.shouldInterceptRequest(url);
                     return resource != null ? resource : forbidden();
                 }
-                // The original design references only optional Noto web fonts.
-                // They are allowed online; offline Windows/Android fonts are the
-                // fallback. No remote script, iframe or game logic is loaded.
+                // Explicitly permit only our CORS-validated BYOK Fish TTS
+                // relay for optional AI dialogue audio. No remote script or
+                // navigation is allowed; the native DeepSeek bridge stays local.
+                if ("https".equals(url.getScheme())
+                        && "uaxnhmaczwjldvjhcysk.supabase.co".equals(hostname)
+                        && "/functions/v1/mayos-fish-tts".equals(url.getPath())) {
+                    return null;
+                }
+                // Optional font CDN has always been allowed.
                 if ("https".equals(url.getScheme())
                         && ("fonts.googleapis.com".equals(hostname)
                         || "fonts.gstatic.com".equals(hostname))) {
@@ -177,6 +183,15 @@ public final class MainActivity extends Activity {
                     + "<script src=\"desktop-ai.js\"></script>";
             if (!html.contains("</body>") || !html.contains("src=\"game.js")) {
                 return forbidden();
+            }
+            // Remove the public GitHub Pages DeepSeek bridge in the APK:
+            // desktop-ai.js below uses the Android native secure message host.
+            int webBridge = html.indexOf("<script src=\"online-ai.js");
+            if (webBridge >= 0) {
+                int closing = html.indexOf("</script>", webBridge);
+                if (closing > webBridge)
+                    html = html.substring(0, webBridge)
+                            + html.substring(closing + "</script>".length());
             }
             String patched = html.replace("</body>", extra + "</body>");
             return new WebResourceResponse("text/html", "UTF-8",
