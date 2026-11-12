@@ -23,6 +23,34 @@
     nagi:'「站住！别动。今天的海风，特别适合拍照。」',
     shiori:'「欢迎回来。坐下喝杯热茶，再慢慢说吧。」'
   };
+  const SAMPLE_NODES={mio:'studio_return_1',nagi:'arrival_5',shiori:'studio_return_12'};
+  // The full existing original-story voice pack contains 297 MP3 clips
+  // (8.85 MB total), but only the current line is downloaded.
+  const cachedClips=new Map();
+  async function playRecorded(id,who,force=false){
+    stop();
+    const ownRevision=revision;
+    if((!enabled&&!force)||!/^[A-Za-z0-9_]+$/.test(id))return false;
+    try{
+      let clip=cachedClips.get(id);
+      if(!clip){
+        const response=await fetch('assets/voices/'+id+'.mp3',{cache:'force-cache'});
+        if(!response.ok)throw new Error('Missing voice clip '+id+': '+response.status);
+        clip=await response.blob();
+        if(clip.size<1000)throw new Error('Invalid MP3 clip '+id);
+        cachedClips.set(id,clip);
+        while(cachedClips.size>8)cachedClips.delete(cachedClips.keys().next().value);
+      }
+      if(revision!==ownRevision||(!enabled&&!force))return false;
+      return await playBlobAudio(clip,ownRevision,who);
+    }catch(error){
+      if(revision===ownRevision){
+        console.warn('[夏日未寄/VOICE] 轻量剧情语音获取失败:',error);
+        signal('clip-error',{id});
+      }
+      return false;
+    }
+  }
 
   let enabled=false,engine=null,loading=null,volume=.85;
   let revision=0,player=null,currentUrl=null;
@@ -367,7 +395,7 @@
     lastNode=identity;
     const info=voiceForSpeaker(d.who,d.route);
     if(!info){stop();return;}
-    if(enabled)void playText(d.who,d.text,d.route);
+    if(enabled)void playRecorded(identity,d.who);
   }
 
   function addControls(){
@@ -393,22 +421,17 @@
     button.type='button';
     button.textContent='VOICE OFF';
     button.setAttribute('aria-label','开启角色专属自然配音');
-    button.onclick=async()=>{
+    button.onclick=()=>{
       unlockAudio();
-      if(enabled) {
+      if(enabled){
         enabled=false;stop();signal('disabled');
         return;
       }
       enabled=true;signal('enabled');
-      notify('正在加载三位角色专属自然语音。首次使用需要下载较大的模型。');
-      // This user gesture explicitly authorizes the first voice load.
-      try{
-        await ensureModel();
-        if(!enabled)return;
-        const d=(typeof node!=='undefined'&&typeof STORY!=='undefined')?STORY[node]:null;
-        if(d&&typeof mode!=='undefined'&&mode==='play')void playText(d.who,d.text,d.route);
-        else notify('自然角色语音已就绪，开始剧情或在设置中试听。');
-      }catch(_){ enabled=false;signal('disabled'); notify(lastError||'角色声音加载失败，请检查网络。'); }
+      notify('已开启轻量剧情语音：按句加载 MP3，不需要 GPU 或大型模型。');
+      const d=typeof STORY!=='undefined'&&typeof node!=='undefined'?STORY[node]:null;
+      if(d&&typeof mode!=='undefined'&&mode==='play'&&d.who===CONFIG[d.route]?.name)
+        void playRecorded(node,d.who);
     };
     bar.insertBefore(button,bar.querySelector('button:last-of-type'));
     listeners.push(state=>{
@@ -426,7 +449,7 @@
     const left=document.createElement('div');
     left.textContent='角色自然配音';
     const small=document.createElement('small');
-    small.textContent='仅三位女主的专属神经声线；不使用系统机械朗读。首次加载需要联网下载模型。';
+    small.textContent='固定剧情按句下载预生成 MP3，不加载大型模型；AI 自由对话可选择 Fish Audio 在线自然语音。';
     left.append(small);
     const toggle=document.createElement('button');
     toggle.className='toggle-btn';toggle.type='button';
@@ -469,7 +492,7 @@
       btn.className='toggle-btn';
       btn.type='button';
       btn.textContent=profile.name.replace(/\s/g,'');
-      btn.onclick=()=>{unlockAudio();void playText(profile.name,previews[id],id,true);};
+      btn.onclick=()=>{unlockAudio();void playRecorded(SAMPLE_NODES[id],profile.name,true);};
       actions.append(btn);
     }
     preview.append(label,actions);grid.append(preview);
@@ -477,14 +500,14 @@
     const status=document.createElement('div');
     status.className='setting';
     status.id='voiceModelStatus';
-    status.textContent=engine?'本机神经语音已就绪':lastError||'尚未加载语音模型';
+    status.textContent='轻量剧情语音可用：仅下载当前对白（无需 GPU）。';
     grid.append(status);
     createProgress($('modalBody'),'voiceLoadSettings');
     renderProgressState();
     const handler=(event)=>{
       if(!status.isConnected){document.removeEventListener('mayos:voice-status',handler);return;}
-      status.textContent=event.detail.error||(event.detail.loading?'正在下载并初始化自然语音模型…':
-        event.detail.ready?'三位角色神经声线已就绪':'尚未加载语音模型');
+      status.textContent=event.detail.error||(event.detail.loading?'正在下载并初始化可选本机模型…':
+        '轻量剧情语音可用：仅下载当前对白（无需 GPU）。');
       toggle.textContent=enabled?'已开启':'关闭';
     };
     document.addEventListener('mayos:voice-status',handler);
@@ -524,9 +547,10 @@
       stop();lastNode='';
     });
     window.addEventListener('mayos:ai-reply',event=>{
+      // Live AI lines use Fish Audio only after the user opts in.
+      // Never unexpectedly download the large local Kokoro model.
       const detail=event.detail||{};
-      if(!CONFIG[detail.route])return;
-      if(enabled)void playText(CONFIG[detail.route].name,detail.text,detail.route);
+      if(enabled&&!window.MayosFishVoice?.isEnabled?.())signal('ai-text-only',{route:detail.route});
     });
     window.addEventListener('pagehide',()=>{
       stop();audioUnlocked=false;updateUnlockButton();
@@ -541,10 +565,16 @@
     window.MayosCharacterVoice=Object.freeze({
       getProfiles:()=>Object.fromEntries(Object.entries(CONFIG).map(([id,value])=>
         [id,{name:value.name,voice:value.voice,speed:value.speed}])),
-      getStatus:()=>({enabled,ready:!!engine,loading:!!loading,
+      getStatus:()=>({enabled,ready:!!engine,loading:!!loading,mode:'prerecorded-mp3',
         audioUnlocked:!isIOS||audioUnlocked,iosAudio:isIOS,
         error:lastError,backend:backendDescription,progress:{...progressState}}),
-      preview:(id)=>CONFIG[id]?playText(CONFIG[id].name,previews[id],id,true):Promise.resolve(false),
+      preview:(id)=>CONFIG[id]?playRecorded(SAMPLE_NODES[id],CONFIG[id].name,true):Promise.resolve(false),
+      unlockAudio,
+      playRemoteAudio:(blob,who)=>{
+        stop();
+        const current=revision;
+        return playBlobAudio(blob,current,String(who||'女主'));
+      },
       stop
     });
   }
