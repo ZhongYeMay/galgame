@@ -3,3 +3,19 @@
 
 /* Cel-shaded twilight art direction */
 .grain{display:none}.sunlight{background:linear-gradient(120deg,#889cff18,transparent 58%,#d98dff10)}.japanese-title{text-shadow:0 2px 1px #574178,0 0 36px #9a78d333}.title-actions .start-button{box-shadow:inset 0 0 26px #cab0ff0c,0 4px 22px #0d103523}.speaker{background:linear-gradient(110deg,#42406b,#292a50)}#dialogue{border-radius:3px;box-shadow:inset 0 1px 0 #ebd9ff14,0 12px 45px #11113666}#dialogue:before,#dialogue:after{border-color:#d9c5ff}.advance-mark{text-shadow:0 0 10px #b895fa88}.route-card{border-radius:3px}.btn,.start-button{border-radius:2px}
+
+/* Character-voice neural model loading: original violet-twilight UI.
+   Only true loader-reported bytes create a percentage; startup and inference
+   use an indeterminate animation instead of invented numerical progress. */
+.voice-load-overlay,.voice-load-settings{color:#f6ecff;background:linear-gradient(125deg,#272448ef,#363053e8);border:1px solid #bfa6e377;box-shadow:0 12px 35px #11102a66;backdrop-filter:blur(14px);padding:16px 19px 15px;font-family:var(--sans)}
+.voice-load-overlay{position:absolute;right:64px;top:87px;z-index:12;width:350px;pointer-events:none}
+.voice-load-settings{position:relative;margin-top:17px;width:100%}
+.voice-load-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:12px;letter-spacing:1px}
+.voice-load-heading>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.voice-load-heading>strong{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;color:#ead5ff}
+.voice-load-track{height:7px;overflow:hidden;background:#aaa0c53a;border:1px solid #bcabdf35;margin:12px 0 9px;position:relative}
+.voice-load-fill{height:100%;width:0;background:linear-gradient(90deg,#9988d6,#e2c8ff);transition:width .16s linear}
+.voice-load-track.indeterminate .voice-load-fill{width:38%!important;position:absolute;animation:voiceLoadSweep 1.35s ease-in-out infinite;transition:none}
+.voice-load-overlay small,.voice-load-settings small{display:block;color:#c7b8da;font-size:10px;letter-spacing:.4px;line-height:1.5}
+@keyframes voiceLoadSweep{0%{left:-38%}100%{left:100%}}
+@media(prefers-reduced-motion:reduce){.voice-load-fill{transition:none}.voice-load-track.indeterminate .voice-load-fill{animation:none;left:20%;opacity:.65}}
