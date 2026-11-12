@@ -24,6 +24,7 @@ jobs:
           node --check site/game.js
           node --check site/online-ai.js
           node --check site/character-voice.js
+          node --check site/fish-voice.js
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload game and AI artwork
