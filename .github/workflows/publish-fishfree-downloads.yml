@@ -1,0 +1,52 @@
+name: Publish FishFree desktop and Android direct downloads
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-fishfree-downloads.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch verified Android package and Windows bundle from CI
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43265872564 --repo "$GITHUB_REPOSITORY" \
+            -n MayosSummer-Android-APK -D /tmp/mayos-android
+          gh run download 43265841453 --repo "$GITHUB_REPOSITORY" \
+            -n MayosSummer-Win10-x64 -D /tmp/mayos-win
+          mkdir -p release
+          cp /tmp/mayos-android/MayosSummer-Android-Complete-DualMode.apk \
+            release/MayosSummer-Android-FishFree-v1.1.0-test.apk
+          cp /tmp/mayos-win/MayosSummer-Win10-x64.zip \
+            release/MayosSummer-Win10-x64-FishFree-v1.1.0-test.zip
+          echo "0274e277755a8f540070a50f5872d5c9ebb11917a0ddf5500b1c27d90d38ae07  release/MayosSummer-Android-FishFree-v1.1.0-test.apk" | sha256sum -c
+          echo "b834e7936f5da14071ec90c04a1c16717036de4c8d18c1758de3f85c8a374679  release/MayosSummer-Win10-x64-FishFree-v1.1.0-test.zip" | sha256sum -c
+          unzip -t release/MayosSummer-Android-FishFree-v1.1.0-test.apk | tail -1
+          unzip -t release/MayosSummer-Win10-x64-FishFree-v1.1.0-test.zip | tail -1
+          sha256sum release/*
+      - name: Publish public versioned test release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=voice-dualmode-v1.1.0-test
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" release/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" release/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target main \
+              --title "夏日未寄｜轻量配音 + Fish Audio 自由对话（Win10 / Android 测试版）" \
+              --prerelease \
+              --notes "保留完整原创故事：10 章、3 线、6 结局。含 297 句预生成轻量中文女主配音（约 8.85 MB），按句播放无需下载 127 MB 模型或 GPU。AI 自由对话使用用户自己的 DeepSeek Key；Fish Audio s2.1-pro-free 角色自然语音需用户自带 Fish Key，通过不保存密钥的 HTTPS 中转接口实现，API 免费政策可能变化。原有 UI 不改动。Windows 包含 WebView2 原生宿主；Android 是调试签名测试 APK，实际设备尚需验证。"
+          fi
