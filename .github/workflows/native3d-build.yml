@@ -17,6 +17,9 @@ jobs:
       approved: ${{ steps.assets.outputs.approved }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify native tooling syntax
+        run: |
+          python3 -m py_compile native3d/tools/quality_gate.py native3d/tools/stage_glb.py
       - name: Check quality gate (do not publish missing or crude models)
         id: assets
         shell: bash
@@ -38,8 +41,17 @@ jobs:
           sudo install -m 755 Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
       - name: Import and statically parse native Godot project
         run: |
-          godot --headless --path native3d --editor --quit
-          godot --headless --path native3d --quit-after 2
+          set -o pipefail
+          godot --headless --path native3d --editor --quit 2>&1 | tee /tmp/native3d-import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading script' /tmp/native3d-import.log; then
+            echo "::error::Godot 3D script import failed"
+            exit 1
+          fi
+          godot --headless --path native3d --quit-after 2 2>&1 | tee /tmp/native3d-startup.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed loading script' /tmp/native3d-startup.log; then
+            echo "::error::Godot 3D startup failed"
+            exit 1
+          fi
 
   export:
     needs: scripts-and-assets
@@ -56,7 +68,7 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.1' 'cmdline-tools;latest' 'cmake;3.10.2.4988404' 'ndk;28.1.13356709'
       - name: Install matching Godot editor and export templates
         shell: bash
         run: |
@@ -70,6 +82,11 @@ jobs:
           mkdir -p "$HOME/.local/share/godot/export_templates/4.7.2.stable"
           unzip -q templates.tpz -d /tmp/godot-export-tpl
           cp /tmp/godot-export-tpl/templates/* "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
+      - name: Configure Godot Android SDK editor settings
+        shell: bash
+        run: |
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          godot --headless --editor --path native3d --script res://tools/configure_android_sdk.gd
       - name: Recheck asset originality and approval
         run: python3 native3d/tools/quality_gate.py
       - name: Import assets and export desktop
