@@ -1,10 +1,10 @@
-name: Free Hunyuan3D reference model experiment
+name: Free Stable Fast 3D reference model experiment
 
 on:
   push:
     branches: [main]
     paths:
-      - 'native3d/tools/free_hunyuan_space.py'
+      - 'native3d/tools/free_stable_fast3d.py'
       - '.github/workflows/free3d-reference.yml'
   workflow_dispatch:
 
@@ -24,24 +24,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install client for official public Hunyuan3D Space
+      - name: Install client for official public Stable Fast 3D Space
         run: |
           python -m pip install --upgrade pip
           python -m pip install 'gradio_client>=1.6,<2' 'Pillow>=10,<13'
-      - name: Generate Nagi 3D draft using free ZeroGPU (one request only)
+      - name: Generate Nagi 3D draft using free Stable Fast 3D ZeroGPU (one request only)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          python native3d/tools/free_hunyuan_space.py \
+          python native3d/tools/free_stable_fast3d.py \
             --source site/assets/retro/nagi-0.webp \
-            --output free3d/nagi_hunyuan_draft.glb \
-            --space tencent/Hunyuan3D-2.1
+            --output free3d/nagi_sf3d_draft.glb
       - name: Save GLB and validation report only when real generation succeeds
         uses: actions/upload-artifact@v4
         with:
-          name: Nagi-Hunyuan3D-Free-UNREVIEWED-GLB
+          name: Nagi-StableFast3D-Free-UNREVIEWED-GLB
           path: |
-            free3d/nagi_hunyuan_draft.glb
-            free3d/nagi_hunyuan_draft.review.json
+            free3d/nagi_sf3d_draft.glb
+            free3d/nagi_sf3d_draft.review.json
           if-no-files-found: error
           retention-days: 7
