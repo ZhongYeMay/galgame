@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#17192d">
+<title>夏日未寄 | 镰仓 3D 自由探索</title>
+<style>
+:root{font-family:"Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#f9f1ff;background:#14192c}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}button,input,textarea{font:inherit}
+button{cursor:pointer;color:inherit}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #e4c8ff;outline-offset:2px}
+[hidden]{display:none!important}#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:linear-gradient(#8ea1c9,#e2c9ba)}
+#shade{pointer-events:none;position:fixed;inset:0;background:linear-gradient(to bottom,#11162c75,transparent 28%,transparent 70%,#1716297d)}
+#top{pointer-events:none;position:fixed;inset:0 0 auto;display:flex;justify-content:space-between;gap:15px;padding:calc(18px + env(safe-area-inset-top)) 24px 0}
+#top>div{pointer-events:auto}.brand{text-shadow:0 2px 12px #172239aa}.brand strong{display:block;font:400 clamp(24px,3vw,38px) Georgia,"Noto Serif JP",serif;letter-spacing:.16em}.brand span{display:block;font-size:10px;letter-spacing:.29em;color:#fff9}
+.tools{display:flex;align-items:flex-start;gap:10px}.glass{border:1px solid #f8edff55;background:#26253e95;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 25px #13112c44;border-radius:10px}.action{padding:11px 16px;text-decoration:none;font-size:12px;letter-spacing:.06em}.action:hover{background:#554b74aa}
+#location{position:fixed;left:24px;bottom:calc(22px + env(safe-area-inset-bottom));font-size:13px;padding:15px 18px;max-width:min(350px,67vw);pointer-events:none}
+#location b{display:block;font-size:16px;font-weight:550;letter-spacing:.08em;margin-bottom:5px}#location small{color:#e7e3eeab;line-height:1.6}
+#map{position:fixed;right:24px;bottom:calc(23px + env(safe-area-inset-bottom));width:148px;height:148px;border-radius:9px;pointer-events:none}
+#hint{position:fixed;left:50%;bottom:calc(43px + env(safe-area-inset-bottom));transform:translateX(-50%);text-align:center;padding:12px 22px;min-width:210px;white-space:nowrap;font-size:13px;pointer-events:none}
+#hint strong{font-size:14px;font-weight:600}
+#toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);padding:12px 18px;max-width:80vw;font-size:13px;text-align:center;z-index:8}
+#reticle{position:fixed;left:50%;top:50%;width:9px;height:9px;transform:translate(-50%,-50%);border:1px solid #fff9;border-radius:50%;box-shadow:0 0 5px #233;pointer-events:none}
+#talk{position:fixed;z-index:20;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(820px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:18px 20px 20px;border:1px solid #cfbbf077;background:#1a1a32ed;backdrop-filter:blur(18px);box-shadow:0 20px 80px #101021a8;border-radius:14px}
+.talk-head{display:flex;gap:15px;align-items:center}.talk-head img{width:70px;height:80px;object-fit:cover;object-position:top center;border-radius:8px;background:#4c4767}.talk-head h2{font:500 22px Georgia,"Noto Serif SC",serif;margin:0}.talk-head small{color:#dac8eeaa;font-size:12px;letter-spacing:.08em}.talk-head button{margin-left:auto;align-self:flex-start}
+#reply{line-height:1.6;min-height:65px;max-height:160px;overflow:auto;padding:14px 0;font-size:15px;color:#f3e8fa}
+#chatForm{display:flex;gap:8px}#chatInput{flex:1;min-width:0;max-height:110px;resize:vertical;min-height:44px;padding:10px 12px;background:#10122599;color:white;border:1px solid #e6d5ff44;border-radius:7px}#send,#openTalk{background:#b4a2d9;color:#1f1937;border:0;font-weight:600;padding:10px 16px;border-radius:7px}
+#send:disabled,#openTalk:disabled{opacity:.5}
+.talk-actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px;margin-top:10px}.talk-actions button{background:#e9deff1b;border:1px solid #d8c0f366;border-radius:6px;padding:8px 11px;font-size:12px}.talk-actions span{color:#e4d6eda0;font-size:11px;flex:1;min-width:200px}
+#keyPanel{display:flex;gap:8px;align-items:center;margin-top:9px}#apiKey{flex:1;min-width:0;border:1px solid #ffffff44;background:#0e1021aa;color:#fff;padding:9px;border-radius:6px;font-size:12px}
+#keyPanel button{border:1px solid #e4d1ee77;background:#e4d1ee20;border-radius:6px;padding:9px}
+#touch{display:none;pointer-events:none;position:fixed;inset:auto 0 calc(30px + env(safe-area-inset-bottom));padding:0 25px;justify-content:space-between;align-items:end}#joystick{pointer-events:auto;width:112px;height:112px;position:relative;border-radius:100%;border:1px solid #f9eaff7a;background:#28273f72;touch-action:none}#stick{position:absolute;left:39px;top:39px;width:34px;height:34px;border-radius:50%;background:#dcd0f8ae;pointer-events:none}#touchTalk{pointer-events:auto;border-radius:12px;background:#a99bcac9;color:#17162d;padding:15px 18px;border:0;font-weight:650}
+#about{position:fixed;z-index:6;left:50%;top:18%;transform:translateX(-50%);padding:22px 28px;width:min(500px,85vw);line-height:1.8;font-size:13px}#about h2{margin:0;font-size:20px}#about button{margin-top:10px;background:#d5c2e6;border:0;color:#242038;border-radius:5px;padding:8px 16px}
+@media(pointer:coarse){#touch{display:flex}#location{bottom:calc(150px + env(safe-area-inset-bottom));left:14px}#map{width:108px;height:108px;right:14px;bottom:calc(157px + env(safe-area-inset-bottom))}#hint{bottom:calc(154px + env(safe-area-inset-bottom));font-size:11px;min-width:0;max-width:52%;white-space:normal;padding:9px}#top{padding:calc(10px + env(safe-area-inset-top)) 12px 0}.brand strong{font-size:22px}.brand span{font-size:8px}.tools{gap:6px}.action{padding:9px;font-size:11px}#talk{max-height:72vh}#talk .talk-head img{width:54px;height:64px}}
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="可通过键盘或触屏自由探索的镰仓3D场景"></canvas>
+<div id="shade"></div><div id="reticle"></div>
+<header id="top"><div class="brand"><strong>夏の便り</strong><span>KAMAKURA · 3D EXPLORATION</span></div><div class="tools"><button class="glass action" id="guideButton" type="button">操作说明</button><a class="glass action" href="./">返回原版 ↗</a></div></header>
+<div id="location" class="glass"><b id="locationName">七里滨 · 海边步道</b><small id="locationDesc">在有边界的镰仓小镇里自由散步</small></div>
+<canvas id="map" class="glass" width="296" height="296" aria-label="小地图"></canvas>
+<div id="hint" class="glass">WASD 移动 · 拖动旋转 · E 交谈</div>
+<div id="toast" class="glass" role="status" hidden></div>
+<section id="talk" hidden aria-label="角色自由对话">
+ <div class="talk-head"><img id="portrait" src="assets/retro/nagi-0.webp" alt=""><div><small id="npcKana">TACHIBANA NAGI</small><h2 id="npcName">橘 凪</h2></div><button class="glass action" id="closeTalk" type="button">结束交谈 ×</button></div>
+ <div id="reply" aria-live="polite">你可以自由输入回答。角色的在线对白由 AI 生成，无法联网时不会伪造回复。</div>
+ <form id="chatForm"><textarea id="chatInput" placeholder="自己输入想说的话……" maxlength="800" rows="2"></textarea><button id="send" type="submit">寄出回答</button></form>
+ <div class="talk-actions"><button id="openTalk" type="button">让她主动开口</button><button id="setupKey" type="button">AI 连接</button><span id="aiStatus">离线探索可用；AI 自由对白需要连接服务</span></div>
+ <div id="keyPanel" hidden><input id="apiKey" type="password" placeholder="仅在当前页面内存使用 DeepSeek API Key" autocomplete="off" spellcheck="false"><button id="saveKey" type="button">本次使用</button><button id="clearKey" type="button">清除</button></div>
+</section>
+<div id="touch"><div id="joystick"><div id="stick"></div></div><button id="touchTalk" type="button">交谈 / E</button></div>
+<section id="about" class="glass" hidden><h2>镰仓 · 自由探索</h2><p>电脑：WASD / 方向键移动，按住画面拖动改变视角，E 与附近角色交谈，Esc 返回探索。手机：左侧摇杆移动，右侧滑动画面旋转，点击「交谈」。</p><p>这是独立的 3D 探索原型，AI 生成的低多边形模型构成海岸、电台、旧书店、道口和街区。世界边界固定，不会出现无限地图或随机瞬移。原有 2D 剧情和存档不改动。</p><button id="closeGuide" type="button">继续探索</button></section>
+<script src="world3d-models.js"></script>
+<script src="world3d.js"></script>
+</body>
+</html>
