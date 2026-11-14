@@ -209,6 +209,7 @@ func _request(proactive: bool) -> void:
         "messages":messages
     })
     # No credential logging and no disk persistence.
+    request.request_completed.connect(_response)
     var error := request.request(API_URL, headers, HTTPClient.METHOD_POST, body)
     if error != OK:
         status.text = "无法启动网络请求。请检查网络或 Android INTERNET 权限。"
