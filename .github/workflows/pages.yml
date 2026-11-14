@@ -27,6 +27,7 @@ jobs:
           node --check site/fish-voice.js
           node --check site/world3d-models.js
           node --check site/world3d.js
+          node --check site/world3d-identity.js
           node tools/test_world3d.cjs
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
