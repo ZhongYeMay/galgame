@@ -97,28 +97,21 @@ def main() -> int:
             client = Client(SPACE, hf_token=os.getenv("HF_TOKEN") or None)
             api = client.view_api(return_format="dict")
             endpoints = set(api.get("named_endpoints", {}))
-            preview = next((n for n in endpoints if n.rstrip("/").endswith("/requires_bg_remove")), None)
             generate = next((n for n in endpoints if n.rstrip("/").endswith("/run_button")), None)
-            if not preview or not generate:
+            if not generate:
                 raise RuntimeError(
-                    "Official Space changed its public APIs; refused speculative generation. "
-                    + "Available: " + repr(sorted(endpoints))
+                    "Official Space changed its public API. Available: "
+                    + repr(sorted(endpoints))
                 )
-            # Exactly one model execution; no retry on ZeroGPU quota / 403.
-            prepared = client.predict(handle_file(str(original)), 0.85, api_name=preview)
-            if not isinstance(prepared, (list, tuple)) or len(prepared) < 3:
-                raise RuntimeError("Preprocessing response was not the expected 6-value state")
-            run_text = "Run"
-            state = prepared[2]
-            if state is None:
-                raise RuntimeError(
-                    "The original image has no transparent subject cutout; "
-                    "manual reference extraction is required before running SF3D."
-                )
+            # The PUBLIC Gradio endpoint exposes 5 inputs and 2 outputs.
+            # Its internal web handler has 7 arguments, but Gradio State
+            # parameters must NOT be supplied through Client.predict().
+            # Verified against the actual November 14 GitHub Actions log:
+            # predict(input_image, foreground_ratio, remesh_option,
+            #         vertex_count, texture_size, api_name="/run_button")
+            # This submits exactly one free model job.
             result = client.predict(
-                run_text,
                 handle_file(str(original)),
-                state,
                 0.85,
                 "None",
                 -1,
