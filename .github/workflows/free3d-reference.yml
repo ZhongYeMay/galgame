@@ -1,11 +1,8 @@
 name: Free Stable Fast 3D reference model experiment
 
+# External free ZeroGPU service currently returns an opaque upstream error.
+# Manual-only: never auto-consume quota, and never imply that a model exists.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'native3d/tools/free_stable_fast3d.py'
-      - '.github/workflows/free3d-reference.yml'
   workflow_dispatch:
 
 permissions:
