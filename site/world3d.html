@@ -18,6 +18,14 @@
 #chapterBadge{pointer-events:none}
 #playerPanel{position:absolute;inset:0;z-index:8;pointer-events:none}
 #playerPanel[hidden]{display:none!important}
+#playerPanel #choiceList,#playerPanel .game-toolbar,#playerPanel #dialogue,#playerPanel textarea,#playerPanel button{pointer-events:auto}
+#playerPanel #characters{pointer-events:none}
+#playerPanel #playScreen{pointer-events:none}
+#playerPanel #choiceList{pointer-events:auto}
+#playerPanel #choiceList button{touch-action:manipulation}
+#worldCanvas{user-select:none;-webkit-user-select:none}
+#worldStatus{pointer-events:none}
+#sceneTransitions button{touch-action:manipulation}
 #playerPanel #characters{z-index:1}
 #playerPanel .actor{left:860px;bottom:-180px;width:512px;height:1024px}
 #playerPanel #dialogue{z-index:3}
