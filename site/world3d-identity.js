@@ -161,13 +161,13 @@
       gl.attachShader(program, shader(gl.VERTEX_SHADER, [
         'attribute vec3 aPosition;', 'attribute vec2 aUV;',
         'uniform mat4 uProjection;', 'uniform mat4 uView;',
-        'varying vec2 vUV;',
-        'void main() { vUV=aUV; gl_Position=uProjection*uView*vec4(aPosition,1.0); }'
+        'varying vec3 vProjectiveUV;',
+        'void main() { float d=max(0.1,-aPosition.z); vProjectiveUV=vec3(aUV*d,d); gl_Position=uProjection*uView*vec4(aPosition,1.0); }'
       ].join('\n')));
       gl.attachShader(program, shader(gl.FRAGMENT_SHADER, [
         'precision mediump float;', 'uniform sampler2D uTexture;',
-        'varying vec2 vUV;', 'void main() {',
-        'vec4 color=texture2D(uTexture,vUV);',
+        'varying vec3 vProjectiveUV;', 'void main() {',
+        'vec2 uv=vProjectiveUV.xy/max(vProjectiveUV.z,0.001);', 'vec4 color=texture2D(uTexture,uv);',
         'if (color.a<0.08) discard;', 'gl_FragColor=color;', '}'
       ].join('\n')));
       gl.linkProgram(program);
