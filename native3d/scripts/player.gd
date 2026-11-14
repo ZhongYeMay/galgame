@@ -18,6 +18,8 @@ var _yaw := 0.0
 var _pitch := -0.12
 var _camera: Camera3D
 var _boom: SpringArm3D
+var _avatar: Node3D
+var _animation: AnimationPlayer
 
 func _ready() -> void:
     name = "Player"
@@ -44,6 +46,20 @@ func _ready() -> void:
     _camera.current = true
     _boom.add_child(_camera)
     _update_view()
+
+func set_avatar(visual: Node3D) -> void:
+    _avatar = visual
+    add_child(visual)
+    _animation = _find_animation_player(visual)
+
+func _find_animation_player(root: Node) -> AnimationPlayer:
+    if root is AnimationPlayer:
+        return root as AnimationPlayer
+    for child in root.get_children():
+        var result := _find_animation_player(child)
+        if result != null:
+            return result
+    return null
 
 func _unhandled_input(event: InputEvent) -> void:
     if input_locked:
@@ -79,6 +95,9 @@ func _physics_process(delta: float) -> void:
         var speed := run_speed if Input.is_action_pressed("sprint") else walk_speed
         velocity.x = move_toward(velocity.x, direction.x * speed, acceleration * delta)
         velocity.z = move_toward(velocity.z, direction.z * speed, acceleration * delta)
+        if _avatar != null and direction.length_squared() > 0.001:
+            _avatar.rotation.y = lerp_angle(_avatar.rotation.y, atan2(-direction.x, -direction.z), delta * 9.0)
+        _update_animation(direction.length(), Input.is_action_pressed("sprint"))
     if not is_on_floor():
         velocity.y -= ProjectSettings.get_setting("physics/3d/default_gravity") * delta
     else:
@@ -89,6 +108,15 @@ func _physics_process(delta: float) -> void:
     global_position.z = clampf(global_position.z, region.position.y, region.end.y)
     if virtual_look.length() > 0.001:
         rotate_camera(virtual_look * delta * 55.0)
+
+func _update_animation(motion: float, sprinting: bool) -> void:
+    if _animation == null:
+        return
+    var desired := "Idle"
+    if motion > 0.15:
+        desired = "Run" if sprinting else "Walk"
+    if _animation.has_animation(desired) and _animation.current_animation != desired:
+        _animation.play(desired, 0.2)
 
 func get_nearby_npc(npcs: Array[Node3D], radius: float = 2.8) -> Node3D:
     var closest: Node3D = null
