@@ -1,0 +1,103 @@
+name: Native 3D Windows Android quality gate and export
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native3d/**'
+      - '.github/workflows/native3d-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts-and-assets:
+    runs-on: ubuntu-24.04
+    outputs:
+      approved: ${{ steps.assets.outputs.approved }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check quality gate (do not publish missing or crude models)
+        id: assets
+        shell: bash
+        run: |
+          if python3 native3d/tools/quality_gate.py; then
+            echo 'approved=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'approved=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::High-quality 3D character and world assets not yet approved; exports blocked."
+          fi
+      - name: Install Godot 4.7.2 stable editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.7.2-stable_linux.x86_64
+          sudo install -m 755 Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Import and statically parse native Godot project
+        run: |
+          godot --headless --path native3d --editor --quit
+          godot --headless --path native3d --quit-after 2
+
+  export:
+    needs: scripts-and-assets
+    if: needs.scripts-and-assets.outputs.approved == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Install matching Godot editor and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          curl -fL --retry 3 -o templates.tpz \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+          unzip -q godot.zip
+          sudo install -m 755 Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          unzip -q templates.tpz -d /tmp/godot-export-tpl
+          cp /tmp/godot-export-tpl/templates/* "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
+      - name: Recheck asset originality and approval
+        run: python3 native3d/tools/quality_gate.py
+      - name: Import assets and export desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          godot --headless --path native3d --editor --quit
+          godot --headless --path native3d --export-release 'Windows Desktop' \
+            "$GITHUB_WORKSPACE/dist/MayosSummer-3D-Windows-x64.exe"
+          test -s dist/MayosSummer-3D-Windows-x64.exe
+      - name: Export Android debug test APK
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/native3d/.build/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          mkdir -p native3d/.build
+          keytool -genkeypair -keystore native3d/.build/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android \
+            -dname 'CN=Development,O=Summer3D,C=US' -keyalg RSA -keysize 2048 -validity 3650
+          godot --headless --path native3d --export-debug 'Android' \
+            "$GITHUB_WORKSPACE/dist/MayosSummer-3D-Android-debug.apk"
+          test -s dist/MayosSummer-3D-Android-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MayosSummer-3D-Windows-Android-NATIVE-UNTESTED
+          path: dist/
+          if-no-files-found: error
