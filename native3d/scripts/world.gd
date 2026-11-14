@@ -114,7 +114,7 @@ func _interact() -> void:
         return
     player.input_locked = true
     Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-    dialogue.open_for(nearby)
+    dialogue.open_for(nearby as SummerNPC)
 
 func _close_dialogue() -> void:
     player.input_locked = false
