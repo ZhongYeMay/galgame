@@ -14,7 +14,9 @@ const NPC_DATA := {
 
 var player: SummerPlayer
 var npcs: Array[Node3D] = []
-var dialogue: Control
+var dialogue: SummerDialogue
+var mobile_controls: SummerMobileControls
+var _active_npc: SummerNPC
 var _error_label: RichTextLabel
 var _ready_for_play := false
 
@@ -31,6 +33,13 @@ func _ready() -> void:
         _show_quality_gate(PackedStringArray(["世界模型未能作为 Node3D 加载。"]))
         return
     add_child(world)
+    var authored_colliders := _create_authored_collisions(world)
+    if authored_colliders == 0:
+        world.queue_free()
+        _show_quality_gate(PackedStringArray([
+            "正式场景 GLB 缺少 COL_ 碰撞网格。请为地面、道路与建筑提供真实碰撞。"
+        ]))
+        return
 
     player = PlayerScript.new()
     add_child(player)
@@ -51,19 +60,45 @@ func _ready() -> void:
         if model == null:
             _show_quality_gate(PackedStringArray(["NPC 模型无法加载：" + id]))
             return
-        npc.add_child(model)
+        npc.set_visual(model)
         npcs.append(npc)
     dialogue = DialogueScript.new()
     add_child(dialogue)
     dialogue.dialogue_closed.connect(_close_dialogue)
-    var mobile := MobileScript.new()
-    add_child(mobile)
-    mobile.interact_pressed.connect(_interact)
-    mobile.move_changed.connect(func(v: Vector2): player.virtual_move = v)
-    mobile.look_changed.connect(func(v: Vector2): player.rotate_camera(v))
+    mobile_controls = MobileScript.new()
+    add_child(mobile_controls)
+    mobile_controls.interact_pressed.connect(_interact)
+    mobile_controls.move_changed.connect(func(v: Vector2): player.virtual_move = v)
+    mobile_controls.look_changed.connect(func(v: Vector2): player.rotate_camera(v))
     _ready_for_play = true
     if not OS.has_feature("mobile"):
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Only collision geometry authored inside the real 3D GLB is used.
+# Optimized COL_ meshes are non-visible engineering data, not visible blocky art.
+func _create_authored_collisions(root: Node) -> int:
+    var count := 0
+    if root is MeshInstance3D:
+        var visual := root as MeshInstance3D
+        if String(visual.name).begins_with("COL_") and visual.mesh != null:
+            var collision := StaticBody3D.new()
+            collision.name = "Collision_" + visual.name
+            collision.collision_layer = 1
+            collision.collision_mask = 1
+            var shape := CollisionShape3D.new()
+            shape.shape = visual.mesh.create_trimesh_shape()
+            if shape.shape != null:
+                visual.add_child(collision)
+                collision.add_child(shape)
+                visual.visible = false
+                count += 1
+            else:
+                collision.queue_free()
+    for child in root.get_children():
+        if child is StaticBody3D:
+            continue
+        count += _create_authored_collisions(child)
+    return count
 
 func _init_environment() -> void:
     var environment := WorldEnvironment.new()
@@ -113,10 +148,19 @@ func _interact() -> void:
     if nearby == null:
         return
     player.input_locked = true
+    _active_npc = nearby as SummerNPC
+    _active_npc.begin_conversation()
+    if mobile_controls != null:
+        mobile_controls.set_input_enabled(false)
     Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-    dialogue.open_for(nearby as SummerNPC)
+    dialogue.open_for(_active_npc)
 
 func _close_dialogue() -> void:
     player.input_locked = false
+    if _active_npc != null:
+        _active_npc.end_conversation()
+        _active_npc = null
+    if mobile_controls != null:
+        mobile_controls.set_input_enabled(true)
     if not OS.has_feature("mobile"):
         Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
