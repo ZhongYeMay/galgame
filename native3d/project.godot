@@ -7,6 +7,7 @@ config/name="夏日未寄 3D — 夏の便り"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 run/low_processor_mode=false
+run/flush_stdout_on_print=true
 
 [display]
 window/size/viewport_width=1600
