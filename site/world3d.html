@@ -10,6 +10,7 @@
 #worldCanvas{position:absolute;inset:0;width:1600px;height:900px;z-index:-5;display:block;touch-action:none}
 #background{background:url('assets/retro/coast.webp') center/cover no-repeat}
 #sceneTransitions{position:absolute;top:96px;right:65px;display:flex;gap:10px;z-index:7}
+#sceneTransitions[hidden]{display:none!important}
 #sceneTransitions button{background:#242448d8;color:#efe6ff;border:1px solid #b4a0df77;padding:11px 18px;font-family:var(--sans);font-size:11px;letter-spacing:1.8px;backdrop-filter:blur(8px)}
 #sceneTransitions button.active{border-color:#d5baf8;background:#554979d9}
 #hudHint{position:absolute;bottom:106px;left:50%;transform:translateX(-50%);z-index:6;font-family:var(--serif);font-size:17px;letter-spacing:3px;color:#f5eaff;text-shadow:0 2px 12px #171433cc;text-align:center;pointer-events:none;max-width:900px}
@@ -55,8 +56,8 @@
 <canvas id="worldCanvas" width="1600" height="900" aria-label="3D 自由探索世界"></canvas>
 <div class="colorgrade"></div><div class="sunlight"></div><div class="grain"></div><div class="vignette"></div>
 <div class="topbar"><button class="wordmark" id="backToStory">夏の便り <span>LETTERS TO SUMMER</span></button>
-<div class="top-right"><span id="sceneLabel">七里ヶ浜 · 海边道口</span><span class="rule"></span><button id="fullButton">全屏 ↗</button><button id="configButton">CONFIG</button><button id="exitButton">返回剧情</button></div></div>
-<div id="sceneTransitions" aria-label="选择原版场景"><button data-zone="coast" class="active">七里ヶ浜</button><button data-zone="studio">潮音放送室</button><button data-zone="bookshop">月灯古书店</button></div>
+<div class="top-right"><span id="sceneLabel">七里ヶ浜 · 海边道口</span><span class="rule"></span><button id="placesButton" aria-expanded="false" aria-controls="sceneTransitions">地点 / MAP</button><button id="fullButton">全屏 ↗</button><button id="configButton">CONFIG</button><button id="exitButton">返回剧情</button></div></div>
+<div id="sceneTransitions" hidden aria-label="选择原版场景"><button data-zone="coast" class="active">七里ヶ浜</button><button data-zone="studio">潮音放送室</button><button data-zone="bookshop">月灯古书店</button></div>
 <div id="chapterBadge"><small>SUMMER / 3D EXPLORATION</small><span id="chapterName">海风与那一天</span></div>
 <div id="sceneInfo"><small>ORIGINAL ART / 夏の便り</small><div id="description">沿着原画中的海滨小路自由探索。</div></div>
 <div id="hudHint">WASD 移动 · 鼠标拖动转动镜头<span class="sub">接近角色后按 E 交谈 · 三处场景固定范围</span></div>
