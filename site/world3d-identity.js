@@ -265,6 +265,8 @@
     $('sceneLabel').textContent=scene.title;
     $('chapterName').textContent=scene.chapter;
     $('description').textContent=scene.info;
+    $('sceneTransitions').hidden=true;
+    $('placesButton').setAttribute('aria-expanded','false');
     $('background').style.backgroundImage='url("assets/retro/'+name+'.webp")';
     document.querySelectorAll('#sceneTransitions [data-zone]').forEach(btn => {
       btn.classList.toggle('active',btn.dataset.zone===name);
@@ -295,6 +297,13 @@
     };
     spriteImage.src='assets/retro/'+scene.npc+'-0.webp';
   }
+  function togglePlaces(force) {
+    const menu=$('sceneTransitions');
+    const open=typeof force==='boolean'?force:menu.hidden;
+    menu.hidden=!open;
+    $('placesButton').setAttribute('aria-expanded',String(open));
+  }
+  $('placesButton').onclick=()=>togglePlaces();
   for (const button of document.querySelectorAll('[data-zone]')) {
     button.addEventListener('click', () => switchScene(button.dataset.zone));
   }
@@ -418,7 +427,9 @@
   function editing() {return ['TEXTAREA','INPUT'].includes(document.activeElement?.tagName);}
   window.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&talking){e.preventDefault();closeTalk();return;}
+    if(e.key==='Escape'&&!$('sceneTransitions').hidden){e.preventDefault();togglePlaces(false);return;}
     if(talking||editing())return;
+    if(e.code==='KeyM'){e.preventDefault();togglePlaces();return;}
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft'].includes(e.code)){
       e.preventDefault();held.add(e.code);
     }
