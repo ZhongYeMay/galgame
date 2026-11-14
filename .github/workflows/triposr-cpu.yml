@@ -84,7 +84,7 @@ jobs:
           python -m pip install \
             'einops==0.7.0' 'omegaconf==2.3.0' \
             'transformers==4.35.0' 'trimesh==4.0.5' \
-            'huggingface_hub>=0.23,<1.0' 'scikit-image>=0.22,<0.26' \
+            'huggingface_hub==0.17.3' 'scikit-image>=0.22,<0.26' \
             'imageio>=2.34'
           python -c 'import torch, skimage, transformers, trimesh; print("CPU ready:", torch.__version__, "CUDA:", torch.cuda.is_available())'
       - name: Clone original MIT-licensed TripoSR inference source
