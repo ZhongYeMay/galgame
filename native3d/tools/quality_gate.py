@@ -42,13 +42,23 @@ def validate(path: Path, name: str) -> list[str]:
         return errors + [f"{name}: invalid embedded JSON: {exc}"]
     if not manifest.get("meshes"):
         errors.append(f"{name}: must include actual 3D meshes")
+    if name == "world":
+        collision_nodes = [node for node in manifest.get("nodes", [])
+                           if str(node.get("name", "")).startswith("COL_")]
+        if not collision_nodes:
+            errors.append("world: missing authored COL_ ground/building collision meshes")
+        else:
+            mesh_nodes = [n for n in collision_nodes if isinstance(n.get("mesh"), int)]
+            if not mesh_nodes:
+                errors.append("world: COL_ collision nodes must contain actual meshes")
     if name != "world" and not manifest.get("skins"):
         errors.append(f"{name}: full-body character must include a skin/skeleton")
     if not manifest.get("materials"):
         errors.append(f"{name}: missing PBR materials")
     if name != "world" and not manifest.get("animations"):
         errors.append(f"{name}: missing required character animations")
-    review = REVIEW_FOLDER / f"{name}.json"
+    review_name = "kamakura_full" if name == "world" else name
+    review = REVIEW_FOLDER / f"{review_name}.json"
     if not review.exists():
         return errors + [f"{name}: missing human art review {review.relative_to(ROOT)}"]
     try:
