@@ -63,3 +63,22 @@ Windows / Android 导出预设位于 `export_presets.cfg`。Android 正式导出
 - Android 改为传感器横屏；GitHub Actions 在模型审核成功后才允许 EXE / APK 导出
 
 **重要：这仍是开发工程，不是一个已完成的《原神》式高清可玩游戏。** 当前仓库缺少已批准的真正高精度 3D 资产，故不提供新的 EXE/APK 下载，也未完成 Android 真机、Windows 实机、真实 GPU 帧率、Fish Audio 3D 版配音测试。Godot headless 工作流只验证工程能否加载/解析，不能作为成品验收依据。
+
+
+## 免费本地 / GitHub Actions 模型推理（TripoSR CPU）
+
+新路线直接运行开源的 **TripoSR**（Stability AI / VAST AI Research，MIT），不再调用受 GPU 限额限制的 Gradio 免费网页服务，也不需要 fal 付费额度。
+
+- Actions 工作流：\`.github/workflows/triposr-cpu.yml\`，首次推送自动测试橘凪；以后可在 Actions → Run workflow 选择澪、凪、栞和分辨率
+- 本地脚本：\`native3d/tools/triposr_cpu_infer.py\`
+- 模型权重：官方 \`stabilityai/TripoSR\` 的 \`model.ckpt\`（约 1.68 GB），运行时下载并校验 SHA-256；不放入 Git 仓库
+- 计算方式：CPU 运行开源权重、真实的三维网格重建和 CPU marching cubes，不使用伪造的 3D 占位图
+- 输出：Actions Artifacts 下的 \`*_triposr_cpu.glb\`、\`*.review.json\`、\`triposr_input.png\`，只有成功运行并检查 GLB 后才会上传
+
+**本地运行条件**：Python 3.11、Pillow、NumPy、CPU 版 PyTorch、Transformers、TripoSR 官方源代码，以及能够访问 Hugging Face 并下载约 1.68 GB 权重的网络。最低内存与运行时间取决于采样分辨率；小内存设备建议使用 96 或 128 的 marching cubes 分辨率。当前 ChatGPT 容器无外网权重下载能力，因此不能在该容器内完成真实推理。
+
+**重要质量提醒**：TripoSR 是单视图三维重建，不保证动漫角色背面、发型、服装、骨骼和表情准确。它生成的是**未经人工验收的静态三维网格**，不等于正式的可动画角色模型。输出仅用于修模阶段；美术未通过人工审核前不允许纳入最终 Android/Windows 游戏安装包。
+
+模型与代码出处：
+- https://github.com/VAST-AI-Research/TripoSR
+- https://huggingface.co/stabilityai/TripoSR
