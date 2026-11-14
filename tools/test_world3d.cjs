@@ -40,7 +40,7 @@ assert.match(html,/src="world3d-identity\.js"/,'original-art renderer must be lo
 assert.match(html,/src="character-voice\.js[^"]*"/,'original character voice adapter reused');
 assert.match(html,/src="fish-voice\.js[^"]*"/,'existing Fish Audio mode reused');
 assert.doesNotMatch(html,/src="world3d-models\.js"/,'do not show old blocky placeholder assets');
-assert.match(refined,/assets\/retro\/[^']*name\+'\.webp'/,'original painted scene textures');
+assert.match(refined,/sceneImage\.src='assets\/retro\/'\+name\+'\.webp'/,'original painted scene textures');
 assert.match(refined,/mode:'original-art-depth-projection'/,'3D re-projection must be clearly described');
 
 /* Browser initialization regression: minimal mocked WebGL, event DOM, image
