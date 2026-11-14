@@ -32,6 +32,15 @@ static func validate() -> PackedStringArray:
         var info_path: String = REQUIRED_META[id]
         if not FileAccess.file_exists(info_path):
             errors.append("缺少人工验收记录：%s" % info_path)
+            continue
+        var review: Variant = JSON.parse_string(FileAccess.get_file_as_string(info_path))
+        if not (review is Dictionary):
+            errors.append("3D 模型验收记录格式错误：%s" % info_path)
+            continue
+        if review.get("approved", false) != true:
+            errors.append("3D 模型尚未获得人工美术验收：%s" % info_path)
+        if str(review.get("reviewed_by", "")).strip_edges().is_empty():
+            errors.append("3D 模型验收缺少审核者标识：%s" % info_path)
     return errors
 
 static func instantiate_asset(id: String) -> Node3D:
