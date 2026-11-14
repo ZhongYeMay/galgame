@@ -42,6 +42,10 @@
 #mobileStick{position:absolute;left:47px;top:47px;width:50px;height:50px;border-radius:50%;background:#d1b4eb77;pointer-events:none}
 #mobileInteract{position:absolute;right:65px;bottom:116px;padding:15px 22px;background:#b8a2e2;color:#22203e;border:0;font:13px var(--sans);letter-spacing:2px;z-index:8;display:none}
 #worldCanvas:focus-visible{outline:none}
+#background,.colorgrade,.sunlight,.grain,.vignette{pointer-events:none}
+#sceneTransitions button:focus-visible{outline:2px solid #e4c5ff;outline-offset:4px}
+#mobileInteract:disabled{opacity:.45;cursor:default}
+#modal{z-index:25}
 @media(pointer:coarse){#mobilePad,#mobileInteract{display:block}#hudHint{bottom:65px}#sceneTransitions{top:92px}}
 </style></head>
 <body>
@@ -51,7 +55,7 @@
 <canvas id="worldCanvas" width="1600" height="900" aria-label="3D 自由探索世界"></canvas>
 <div class="colorgrade"></div><div class="sunlight"></div><div class="grain"></div><div class="vignette"></div>
 <div class="topbar"><button class="wordmark" id="backToStory">夏の便り <span>LETTERS TO SUMMER</span></button>
-<div class="top-right"><span id="sceneLabel">七里ヶ浜 · 海边道口</span><span class="rule"></span><button id="fullButton">全屏 ↗</button><button id="exitButton">返回剧情</button></div></div>
+<div class="top-right"><span id="sceneLabel">七里ヶ浜 · 海边道口</span><span class="rule"></span><button id="fullButton">全屏 ↗</button><button id="configButton">CONFIG</button><button id="exitButton">返回剧情</button></div></div>
 <div id="sceneTransitions" aria-label="选择原版场景"><button data-zone="coast" class="active">七里ヶ浜</button><button data-zone="studio">潮音放送室</button><button data-zone="bookshop">月灯古书店</button></div>
 <div id="chapterBadge"><small>SUMMER / 3D EXPLORATION</small><span id="chapterName">海风与那一天</span></div>
 <div id="sceneInfo"><small>ORIGINAL ART / 夏の便り</small><div id="description">沿着原画中的海滨小路自由探索。</div></div>
@@ -73,7 +77,11 @@
 </div>
 <button id="mobileInteract" type="button">交谈 / E</button><div id="mobilePad"><div id="mobileStick"></div></div>
 <div id="worldStatus" role="status" hidden></div>
+<div id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-shell"><div class="modal-heading"><div><small id="modalEn">CONFIGURATION</small><h2 id="modalTitle">夏天的偏好</h2></div><button class="close" id="closeModalButton" aria-label="关闭">×</button></div><div id="modalBody"></div></div></div>
+<div id="toast" role="status" hidden></div>
 <div class="bottom-title"><span>从每一次相遇里，走向属于你的夏天</span><div><span>ORIGINAL ART · 3D PROJECTION</span></div></div>
 </main></div>
 <div id="mobileGate" hidden><div class="gate-logo">夏の便り</div><small>3D EXPLORATION EXPERIENCE</small><h2>把手机横过来，<br>让夏天铺满屏幕。</h2><button id="enterMobileBtn">进入全屏 · 开始探索 ↗</button><p class="gate-note">同一套角色立绘与场景原画</p></div>
-<script src="world3d-identity.js"></script></body></html>
+<script src="world3d-identity.js"></script>
+<script src="character-voice.js?v=light-mp3-1"></script>
+<script src="fish-voice.js?v=free-fish-1"></script></body></html>
