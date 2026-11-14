@@ -1,57 +1,79 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#17192d">
-<title>夏日未寄 | 镰仓 3D 自由探索</title>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"><meta name="theme-color" content="#191932">
+<title>夏日未寄 — 3D 自由探索</title>
+<link rel="preload" as="image" href="assets/retro/coast.webp">
+<link rel="stylesheet" href="style.css?v=voice-loading-1">
 <style>
-:root{font-family:"Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#f9f1ff;background:#14192c}
-*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}button,input,textarea{font:inherit}
-button{cursor:pointer;color:inherit}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #e4c8ff;outline-offset:2px}
-[hidden]{display:none!important}#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;background:linear-gradient(#8ea1c9,#e2c9ba)}
-#shade{pointer-events:none;position:fixed;inset:0;background:linear-gradient(to bottom,#11162c75,transparent 28%,transparent 70%,#1716297d)}
-#top{pointer-events:none;position:fixed;inset:0 0 auto;display:flex;justify-content:space-between;gap:15px;padding:calc(18px + env(safe-area-inset-top)) 24px 0}
-#top>div{pointer-events:auto}.brand{text-shadow:0 2px 12px #172239aa}.brand strong{display:block;font:400 clamp(24px,3vw,38px) Georgia,"Noto Serif JP",serif;letter-spacing:.16em}.brand span{display:block;font-size:10px;letter-spacing:.29em;color:#fff9}
-.tools{display:flex;align-items:flex-start;gap:10px}.glass{border:1px solid #f8edff55;background:#26253e95;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 25px #13112c44;border-radius:10px}.action{padding:11px 16px;text-decoration:none;font-size:12px;letter-spacing:.06em}.action:hover{background:#554b74aa}
-#location{position:fixed;left:24px;bottom:calc(22px + env(safe-area-inset-bottom));font-size:13px;padding:15px 18px;max-width:min(350px,67vw);pointer-events:none}
-#location b{display:block;font-size:16px;font-weight:550;letter-spacing:.08em;margin-bottom:5px}#location small{color:#e7e3eeab;line-height:1.6}
-#map{position:fixed;right:24px;bottom:calc(23px + env(safe-area-inset-bottom));width:148px;height:148px;border-radius:9px;pointer-events:none}
-#hint{position:fixed;left:50%;bottom:calc(43px + env(safe-area-inset-bottom));transform:translateX(-50%);text-align:center;padding:12px 22px;min-width:210px;white-space:nowrap;font-size:13px;pointer-events:none}
-#hint strong{font-size:14px;font-weight:600}
-#toast{position:fixed;top:90px;left:50%;transform:translateX(-50%);padding:12px 18px;max-width:80vw;font-size:13px;text-align:center;z-index:8}
-#reticle{position:fixed;left:50%;top:50%;width:9px;height:9px;transform:translate(-50%,-50%);border:1px solid #fff9;border-radius:50%;box-shadow:0 0 5px #233;pointer-events:none}
-#talk{position:fixed;z-index:20;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(820px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:18px 20px 20px;border:1px solid #cfbbf077;background:#1a1a32ed;backdrop-filter:blur(18px);box-shadow:0 20px 80px #101021a8;border-radius:14px}
-.talk-head{display:flex;gap:15px;align-items:center}.talk-head img{width:70px;height:80px;object-fit:cover;object-position:top center;border-radius:8px;background:#4c4767}.talk-head h2{font:500 22px Georgia,"Noto Serif SC",serif;margin:0}.talk-head small{color:#dac8eeaa;font-size:12px;letter-spacing:.08em}.talk-head button{margin-left:auto;align-self:flex-start}
-#reply{line-height:1.6;min-height:65px;max-height:160px;overflow:auto;padding:14px 0;font-size:15px;color:#f3e8fa}
-#chatForm{display:flex;gap:8px}#chatInput{flex:1;min-width:0;max-height:110px;resize:vertical;min-height:44px;padding:10px 12px;background:#10122599;color:white;border:1px solid #e6d5ff44;border-radius:7px}#send,#openTalk{background:#b4a2d9;color:#1f1937;border:0;font-weight:600;padding:10px 16px;border-radius:7px}
-#send:disabled,#openTalk:disabled{opacity:.5}
-.talk-actions{display:flex;flex-wrap:wrap;align-items:center;gap:11px;margin-top:10px}.talk-actions button{background:#e9deff1b;border:1px solid #d8c0f366;border-radius:6px;padding:8px 11px;font-size:12px}.talk-actions span{color:#e4d6eda0;font-size:11px;flex:1;min-width:200px}
-#keyPanel{display:flex;gap:8px;align-items:center;margin-top:9px}#apiKey{flex:1;min-width:0;border:1px solid #ffffff44;background:#0e1021aa;color:#fff;padding:9px;border-radius:6px;font-size:12px}
-#keyPanel button{border:1px solid #e4d1ee77;background:#e4d1ee20;border-radius:6px;padding:9px}
-#touch{display:none;pointer-events:none;position:fixed;inset:auto 0 calc(30px + env(safe-area-inset-bottom));padding:0 25px;justify-content:space-between;align-items:end}#joystick{pointer-events:auto;width:112px;height:112px;position:relative;border-radius:100%;border:1px solid #f9eaff7a;background:#28273f72;touch-action:none}#stick{position:absolute;left:39px;top:39px;width:34px;height:34px;border-radius:50%;background:#dcd0f8ae;pointer-events:none}#touchTalk{pointer-events:auto;border-radius:12px;background:#a99bcac9;color:#17162d;padding:15px 18px;border:0;font-weight:650}
-#about{position:fixed;z-index:6;left:50%;top:18%;transform:translateX(-50%);padding:22px 28px;width:min(500px,85vw);line-height:1.8;font-size:13px}#about h2{margin:0;font-size:20px}#about button{margin-top:10px;background:#d5c2e6;border:0;color:#242038;border-radius:5px;padding:8px 16px}
-@media(pointer:coarse){#touch{display:flex}#location{bottom:calc(150px + env(safe-area-inset-bottom));left:14px}#map{width:108px;height:108px;right:14px;bottom:calc(157px + env(safe-area-inset-bottom))}#hint{bottom:calc(154px + env(safe-area-inset-bottom));font-size:11px;min-width:0;max-width:52%;white-space:normal;padding:9px}#top{padding:calc(10px + env(safe-area-inset-top)) 12px 0}.brand strong{font-size:22px}.brand span{font-size:8px}.tools{gap:6px}.action{padding:9px;font-size:11px}#talk{max-height:72vh}#talk .talk-head img{width:54px;height:64px}}
-</style>
-</head>
+/* 使用与 2D 原版相同的字体、版式、纹理、控件和角色原画。 */
+#stage{background:#292b50}
+#worldCanvas{position:absolute;inset:0;width:1600px;height:900px;z-index:-5;display:block;touch-action:none}
+#background{background:url('assets/retro/coast.webp') center/cover no-repeat}
+#sceneTransitions{position:absolute;top:96px;right:65px;display:flex;gap:10px;z-index:7}
+#sceneTransitions button{background:#242448d8;color:#efe6ff;border:1px solid #b4a0df77;padding:11px 18px;font-family:var(--sans);font-size:11px;letter-spacing:1.8px;backdrop-filter:blur(8px)}
+#sceneTransitions button.active{border-color:#d5baf8;background:#554979d9}
+#hudHint{position:absolute;bottom:106px;left:50%;transform:translateX(-50%);z-index:6;font-family:var(--serif);font-size:17px;letter-spacing:3px;color:#f5eaff;text-shadow:0 2px 12px #171433cc;text-align:center;pointer-events:none;max-width:900px}
+#hudHint .sub{display:block;font-family:var(--sans);font-size:10px;letter-spacing:2px;color:#e5d9fb;margin-top:8px}
+#chapterBadge{pointer-events:none}
+#playerPanel{position:absolute;inset:0;z-index:8;pointer-events:none}
+#playerPanel[hidden]{display:none!important}
+#playerPanel #characters{z-index:1}
+#playerPanel .actor{left:860px;bottom:-180px;width:512px;height:1024px}
+#playerPanel #dialogue{z-index:3}
+#playerPanel .game-toolbar{z-index:4}
+#playerPanel #choiceList{z-index:5;top:268px}
+#chatBox{background:linear-gradient(90deg,#22254bf5,#33325ce8);border:1px solid #aa9cdb99;box-shadow:0 5px 25px #10143e66;backdrop-filter:blur(12px);padding:22px 25px 17px;color:#f8f1ff}
+#chatBox label{display:block;font:400 16px var(--serif);letter-spacing:3px;margin-bottom:13px}
+#replyInput{height:95px;width:100%;background:#151a3dbb;color:#f8f1ff;border:1px solid #b6a5ea65;padding:14px;font:19px var(--serif);resize:none}
+#chatButtons{display:flex;gap:12px;margin-top:10px}
+#chatButtons button,#keyButtons button{font:12px var(--sans);letter-spacing:1px;padding:11px 16px;border:1px solid #b6a5ea77;background:#b8a2e333;color:#f8eaff}
+#chatButtons button.primary{background:#b8a2e2;color:#25213e}
+#chatButtons button:disabled{opacity:.5}
+#chatStatus{font:11px var(--sans);color:#e3d8efb8;line-height:1.6;margin-top:11px;min-height:24px}
+#keyButtons{display:flex;align-items:center;gap:10px;margin-top:10px}
+#keyInput{background:#171a34;color:#fff;border:1px solid #b6a5ea65;flex:1;min-width:0;padding:11px;font:13px var(--sans)}
+#keyButtons button{font-size:11px}
+#playerPanel #dialogueText{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;max-height:130px}
+#playerPanel #textArea{cursor:default}
+#sceneInfo{position:absolute;top:208px;left:65px;max-width:410px;z-index:5;text-shadow:0 3px 14px #12102bc0;font:14px var(--serif);letter-spacing:2px;line-height:1.8;pointer-events:none}
+#sceneInfo small{font:10px var(--sans);letter-spacing:3px;color:#ddc4f1}
+#worldStatus{position:absolute;top:84px;left:50%;transform:translateX(-50%);max-width:750px;padding:12px 22px;background:#242448dc;border:1px solid #c6b1e566;font:13px var(--sans);z-index:9}
+#mobilePad{position:absolute;bottom:95px;left:45px;width:145px;height:145px;z-index:8;border:1px solid #c9b9ed7b;border-radius:50%;background:#27234965;touch-action:none;display:none}
+#mobileStick{position:absolute;left:47px;top:47px;width:50px;height:50px;border-radius:50%;background:#d1b4eb77;pointer-events:none}
+#mobileInteract{position:absolute;right:65px;bottom:116px;padding:15px 22px;background:#b8a2e2;color:#22203e;border:0;font:13px var(--sans);letter-spacing:2px;z-index:8;display:none}
+#worldCanvas:focus-visible{outline:none}
+@media(pointer:coarse){#mobilePad,#mobileInteract{display:block}#hudHint{bottom:65px}#sceneTransitions{top:92px}}
+</style></head>
 <body>
-<canvas id="world" aria-label="可通过键盘或触屏自由探索的镰仓3D场景"></canvas>
-<div id="shade"></div><div id="reticle"></div>
-<header id="top"><div class="brand"><strong>夏の便り</strong><span>KAMAKURA · 3D EXPLORATION</span></div><div class="tools"><button class="glass action" id="guideButton" type="button">操作说明</button><a class="glass action" href="./">返回原版 ↗</a></div></header>
-<div id="location" class="glass"><b id="locationName">七里滨 · 海边步道</b><small id="locationDesc">在有边界的镰仓小镇里自由散步</small></div>
-<canvas id="map" class="glass" width="296" height="296" aria-label="小地图"></canvas>
-<div id="hint" class="glass">WASD 移动 · 拖动旋转 · E 交谈</div>
-<div id="toast" class="glass" role="status" hidden></div>
-<section id="talk" hidden aria-label="角色自由对话">
- <div class="talk-head"><img id="portrait" src="assets/retro/nagi-0.webp" alt=""><div><small id="npcKana">TACHIBANA NAGI</small><h2 id="npcName">橘 凪</h2></div><button class="glass action" id="closeTalk" type="button">结束交谈 ×</button></div>
- <div id="reply" aria-live="polite">你可以自由输入回答。角色的在线对白由 AI 生成，无法联网时不会伪造回复。</div>
- <form id="chatForm"><textarea id="chatInput" placeholder="自己输入想说的话……" maxlength="800" rows="2"></textarea><button id="send" type="submit">寄出回答</button></form>
- <div class="talk-actions"><button id="openTalk" type="button">让她主动开口</button><button id="setupKey" type="button">AI 连接</button><span id="aiStatus">离线探索可用；AI 自由对白需要连接服务</span></div>
- <div id="keyPanel" hidden><input id="apiKey" type="password" placeholder="仅在当前页面内存使用 DeepSeek API Key" autocomplete="off" spellcheck="false"><button id="saveKey" type="button">本次使用</button><button id="clearKey" type="button">清除</button></div>
-</section>
-<div id="touch"><div id="joystick"><div id="stick"></div></div><button id="touchTalk" type="button">交谈 / E</button></div>
-<section id="about" class="glass" hidden><h2>镰仓 · 自由探索</h2><p>电脑：WASD / 方向键移动，按住画面拖动改变视角，E 与附近角色交谈，Esc 返回探索。手机：左侧摇杆移动，右侧滑动画面旋转，点击「交谈」。</p><p>这是独立的 3D 探索原型，AI 生成的低多边形模型构成海岸、电台、旧书店、道口和街区。世界边界固定，不会出现无限地图或随机瞬移。原有 2D 剧情和存档不改动。</p><button id="closeGuide" type="button">继续探索</button></section>
-<script src="world3d-models.js"></script>
-<script src="world3d.js"></script>
-</body>
-</html>
+<div id="viewport">
+<main id="stage" class="playing" aria-label="夏日未寄 3D 自由探索">
+<div class="background" id="background"></div>
+<canvas id="worldCanvas" width="1600" height="900" aria-label="3D 自由探索世界"></canvas>
+<div class="colorgrade"></div><div class="sunlight"></div><div class="grain"></div><div class="vignette"></div>
+<div class="topbar"><button class="wordmark" id="backToStory">夏の便り <span>LETTERS TO SUMMER</span></button>
+<div class="top-right"><span id="sceneLabel">七里ヶ浜 · 海边道口</span><span class="rule"></span><button id="fullButton">全屏 ↗</button><button id="exitButton">返回剧情</button></div></div>
+<div id="sceneTransitions" aria-label="选择原版场景"><button data-zone="coast" class="active">七里ヶ浜</button><button data-zone="studio">潮音放送室</button><button data-zone="bookshop">月灯古书店</button></div>
+<div id="chapterBadge"><small>SUMMER / 3D EXPLORATION</small><span id="chapterName">海风与那一天</span></div>
+<div id="sceneInfo"><small>ORIGINAL ART / 夏の便り</small><div id="description">沿着原画中的海滨小路自由探索。</div></div>
+<div id="hudHint">WASD 移动 · 鼠标拖动转动镜头<span class="sub">接近角色后按 E 交谈 · 三处场景固定范围</span></div>
+<div id="playerPanel" hidden>
+ <div id="characters"><div class="actor" id="actor"><img id="sprite" src="assets/retro/nagi-0.webp" alt="橘 凪"><img id="spriteOld" alt="" aria-hidden="true"></div></div>
+ <section id="playScreen"><div id="choiceList"><div id="chatBox">
+  <label for="replyInput">あなたの返事 / 填写你的回答</label>
+  <textarea id="replyInput" maxlength="800" rows="3" placeholder="用你自己的话回应她，不需要选择固定答案……"></textarea>
+  <div id="chatButtons"><button id="sendBtn" class="primary">寄出回答 →</button><button id="firstBtn">让她先说</button><button id="keyBtn">AI 连接</button></div>
+  <div id="keyButtons" hidden><input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="本次使用的 DeepSeek API Key"><button id="keySaveBtn">本次使用</button><button id="keyClearBtn">清除</button></div>
+  <div id="chatStatus">与原版相同的自由输入模式，AI 对话需要单独连接。</div>
+ </div></div>
+ <div id="dialogue"><div class="speaker"><span id="speakerName">橘 凪</span><small id="speakerKana">TACHIBANA NAGI</small></div>
+ <div id="textArea"><p id="dialogueText">好久不见。这里的海风还是和以前一样。</p><div class="advance-mark">◆</div></div>
+ <div class="dialogue-foot"><span id="lineInfo">01 / FREE TALK</span><span>自由输入 · AI DIALOGUE</span></div></div>
+ <div class="game-toolbar"><div><button id="leaveTalkBtn">BACK <span>结束交谈</span></button></div><div><button id="clearChatBtn">RESET <span>新话题</span></button><button id="returnStoryBtn">TITLE <span>返回原版</span></button></div></div>
+ </section>
+</div>
+<button id="mobileInteract" type="button">交谈 / E</button><div id="mobilePad"><div id="mobileStick"></div></div>
+<div id="worldStatus" role="status" hidden></div>
+<div class="bottom-title"><span>从每一次相遇里，走向属于你的夏天</span><div><span>ORIGINAL ART · 3D PROJECTION</span></div></div>
+</main></div>
+<div id="mobileGate" hidden><div class="gate-logo">夏の便り</div><small>3D EXPLORATION EXPERIENCE</small><h2>把手机横过来，<br>让夏天铺满屏幕。</h2><button id="enterMobileBtn">进入全屏 · 开始探索 ↗</button><p class="gate-note">同一套角色立绘与场景原画</p></div>
+<script src="world3d-identity.js"></script></body></html>
