@@ -39,7 +39,7 @@ func _ready() -> void:
     if playable_avatar == null:
         _show_quality_gate(PackedStringArray(["玩家模型无法加载。"]))
         return
-    player.add_child(playable_avatar)
+    player.set_avatar(playable_avatar)
     player.interaction_requested.connect(_interact)
 
     for id in ["mio", "nagi", "shiori"]:
