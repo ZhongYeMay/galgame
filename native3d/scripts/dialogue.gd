@@ -221,7 +221,6 @@ func _request(proactive: bool) -> void:
     send_button.disabled = true
     proactive_button.disabled = true
     status.text = "正在生成对白……"
-    request.request_completed.connect(_response)
 
 func _response(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
     if active_request != null:
