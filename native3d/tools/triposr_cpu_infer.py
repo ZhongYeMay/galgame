@@ -130,9 +130,6 @@ def inspect_glb(file: Path) -> dict:
 
 
 def reconstruct(args: argparse.Namespace) -> dict:
-    import torch
-    from huggingface_hub import hf_hub_download
-
     if args.source is None or not args.source.is_file():
         raise FileNotFoundError("Original sprite not found")
     prepared = args.output.parent / "triposr_input.png"
@@ -140,6 +137,10 @@ def reconstruct(args: argparse.Namespace) -> dict:
     print("Prepared original artwork:", prep, flush=True)
     if args.preprocess_only:
         return prep
+
+    # Import heavier dependencies only after the no-model preprocessing stage.
+    import torch
+    from huggingface_hub import hf_hub_download
 
     if not args.repo_dir.is_dir():
         raise FileNotFoundError(
