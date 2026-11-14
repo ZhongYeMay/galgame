@@ -1,0 +1,141 @@
+name: Open-source TripoSR local/Actions CPU image-to-3D
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native3d/tools/triposr_cpu_infer.py'
+      - '.github/workflows/triposr-cpu.yml'
+  workflow_dispatch:
+    inputs:
+      character:
+        description: 'Original heroine sprite used for CPU 3D reconstruction'
+        required: true
+        default: 'nagi'
+        type: choice
+        options:
+          - nagi
+          - mio
+          - shiori
+      resolution:
+        description: 'CPU marching cubes resolution (larger takes more RAM/time)'
+        required: true
+        default: '128'
+        type: choice
+        options:
+          - '96'
+          - '128'
+          - '160'
+          - '192'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: triposr-cpu-single
+  cancel-in-progress: false
+
+jobs:
+  cpu-image-to-3d:
+    # Ubuntu public-repo standard runner: 4 CPU cores and 16GB of RAM.
+    # NO hosted NVIDIA GPU. Unlike previous workflows, this runs a real model
+    # locally on the runner rather than calling a third-party demo/Gradio API.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 155
+    env:
+      SUBJECT: ${{ github.event.inputs.character || 'nagi' }}
+      MC_RES: ${{ github.event.inputs.resolution || '128' }}
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
+      OPENBLAS_NUM_THREADS: '2'
+      TOKENIZERS_PARALLELISM: 'false'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check input and output boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$SUBJECT" in nagi|mio|shiori) ;; *) exit 2;; esac
+          case "$MC_RES" in 96|128|160|192) ;; *) exit 2;; esac
+          test -s "site/assets/retro/${SUBJECT}-0.webp"
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install 'numpy>=1.24,<2' 'Pillow>=10,<12'
+          python -m py_compile native3d/tools/triposr_cpu_infer.py
+          mkdir -p free3d
+          python native3d/tools/triposr_cpu_infer.py \
+            --subject "$SUBJECT" \
+            --source "site/assets/retro/${SUBJECT}-0.webp" \
+            --output "free3d/${SUBJECT}_triposr_cpu.glb" \
+            --preprocess-only
+          echo "Original heroine cutout passed input checks."
+      - name: Install CPU-only open-source 3D inference dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          # CPU PyTorch wheels; do not install CUDA packages.
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+            'torch==2.4.1' 'torchvision==0.19.1'
+          python -m pip install \
+            'einops==0.7.0' 'omegaconf==2.3.0' \
+            'transformers==4.35.0' 'trimesh==4.0.5' \
+            'huggingface_hub>=0.23,<1.0' 'scikit-image>=0.22,<0.26' \
+            'imageio>=2.34'
+          python -c 'import torch, skimage, transformers, trimesh; print("CPU ready:", torch.__version__, "CUDA:", torch.cuda.is_available())'
+      - name: Clone original MIT-licensed TripoSR inference source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external
+          git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git external/TripoSR
+          git -C external/TripoSR log -1 --format='%H %s'
+      - name: Run true TripoSR image-to-mesh inference locally on runner CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python native3d/tools/triposr_cpu_infer.py \
+            --subject "$SUBJECT" \
+            --source "site/assets/retro/${SUBJECT}-0.webp" \
+            --output "free3d/${SUBJECT}_triposr_cpu.glb" \
+            --repo-dir external/TripoSR \
+            --weights-dir external/weights \
+            --resolution "$MC_RES" \
+            --chunk-size 4096
+      - name: Verify actual generated 3D geometry and unapproved flag
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import glob, json, struct
+          files=glob.glob('free3d/*_triposr_cpu.glb')
+          assert len(files)==1, files
+          data=open(files[0],'rb').read()
+          assert len(data)>10000 and data[:4]==b'glTF'
+          version,size=struct.unpack_from('<II',data,4)
+          assert version==2 and size==len(data)
+          length,tag=struct.unpack_from('<I4s',data,12)
+          assert tag==b'JSON'
+          model=json.loads(data[20:20+length])
+          assert model.get('meshes')
+          reports=glob.glob('free3d/*.review.json')
+          assert len(reports)==1, reports
+          review=json.load(open(reports[0]))
+          assert review['approved'] is False and review['triangle_count']>=100
+          assert review['skins']==0, 'This CPU model unexpectedly claims to be a rigged final heroine'
+          print('Actual GLB generated; unrigged draft; production approval correctly BLOCKED.')
+          PY
+      - name: Upload genuine generated model and validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripoSR-CPU-${{ env.SUBJECT }}-UNREVIEWED-GLB
+          path: |
+            free3d/*_triposr_cpu.glb
+            free3d/*.review.json
+            free3d/triposr_input.png
+          if-no-files-found: error
+          retention-days: 7
