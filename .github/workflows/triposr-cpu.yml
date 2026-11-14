@@ -42,8 +42,15 @@ jobs:
     # locally on the runner rather than calling a third-party demo/Gradio API.
     runs-on: ubuntu-24.04
     timeout-minutes: 155
+    strategy:
+      fail-fast: false
+      matrix:
+        # Initial successful Nagi CPU model is already archived.
+        # On code push, build the remaining two heroines separately.
+        # Manual dispatch still generates exactly the selected heroine.
+        subject: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.character) || '["mio","shiori"]') }}
     env:
-      SUBJECT: ${{ github.event.inputs.character || 'nagi' }}
+      SUBJECT: ${{ matrix.subject }}
       MC_RES: ${{ github.event.inputs.resolution || '128' }}
       OMP_NUM_THREADS: '4'
       MKL_NUM_THREADS: '4'
