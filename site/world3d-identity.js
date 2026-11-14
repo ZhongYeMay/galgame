@@ -46,6 +46,7 @@
   let player = {x: 0, z: 0, yaw: 0, pitch: 0};
   let talking = false, pending = false, key = '', messageNumber = 0, activeRequest = null;
   let lastFrame = 0, prevHint = '', notificationTimer = 0, voiceGesture = false;
+  let lookSensitivity = 0.0028, reducedMotion = false;
   const held = new Set(), histories = Object.create(null), joystick = {x: 0, y: 0};
   let drag = null, touchId = null, unlocked = false;
   const pointerFine = () => !matchMedia('(pointer:coarse)').matches;
@@ -380,8 +381,8 @@
 
   function rotate(dx,dy) {
     if(talking)return;
-    player.yaw=clamp(player.yaw+dx*.0028,-.65,.65);
-    player.pitch=clamp(player.pitch-dy*.0028,-.28,.28);
+    player.yaw=clamp(player.yaw+dx*lookSensitivity*(reducedMotion?.55:1),-.65,.65);
+    player.pitch=clamp(player.pitch-dy*lookSensitivity*(reducedMotion?.55:1),-.28,.28);
   }
   function localDrag(e) {
     // Stage uses transform:scale for original 1600x900 coordinate system;
@@ -615,10 +616,48 @@
     const section=document.createElement('div');
     section.className='settings-grid';
     $('modalBody').append(section);
-    const voice=document.createElement('div');
-    voice.className='setting';
-    voice.innerHTML='<div>原版美术投影<small>使用 2D 原画生成固定范围的 3D 深度网格，未生成全角度高精度 GLB</small></div>';
-    section.append(voice);
+    const control=document.createElement('div');
+    control.className='setting';
+    const label=document.createElement('label');
+    label.htmlFor='lookSensitivity';
+    label.textContent='镜头灵敏度';
+    const note=document.createElement('small');
+    note.textContent='左慢 · 右快，画面不改变原版美术';
+    label.append(note);
+    const sensitivity=document.createElement('input');
+    sensitivity.type='range';sensitivity.id='lookSensitivity';
+    sensitivity.min='10';sensitivity.max='100';
+    sensitivity.value=String(Math.round(lookSensitivity/.005*100));
+    sensitivity.oninput=()=>{lookSensitivity=Number(sensitivity.value)/100*.005;};
+    control.append(label,sensitivity);section.append(control);
+
+    const motionControl=document.createElement('div');
+    motionControl.className='setting';
+    const motionLabel=document.createElement('label');
+    motionLabel.htmlFor='lessMotion';
+    motionLabel.textContent='减少镜头动作';
+    const motionNote=document.createElement('small');
+    motionNote.textContent='降低视角移动幅度，缓解快速转动';
+    motionLabel.append(motionNote);
+    const lessMotion=document.createElement('input');
+    lessMotion.type='checkbox';lessMotion.id='lessMotion';lessMotion.checked=reducedMotion;
+    lessMotion.onchange=()=>{reducedMotion=lessMotion.checked;};
+    motionControl.append(motionLabel,lessMotion);section.append(motionControl);
+
+    const resetControl=document.createElement('div');
+    resetControl.className='setting';
+    const resetLabel=document.createElement('div');
+    resetLabel.textContent='重置视角';
+    const resetNote=document.createElement('small');
+    resetNote.textContent='回到当前地点的原画构图视角';
+    resetLabel.append(resetNote);
+    const resetButton=document.createElement('button');
+    resetButton.className='toggle-btn';resetButton.textContent='复位';
+    resetButton.onclick=()=>{
+      player={x:0,z:0,yaw:0,pitch:0};
+      updateHint();window.closeModal();say('已经回到原画视角。',1600);
+    };
+    resetControl.append(resetLabel,resetButton);section.append(resetControl);
   };
   window.closeModal = ()=>{$('modal').hidden=true;};
   $('configButton').onclick=()=>window.openSettings();
