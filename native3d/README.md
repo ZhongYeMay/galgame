@@ -50,3 +50,16 @@ Windows / Android 导出预设位于 `export_presets.cfg`。Android 正式导出
 3. 不以“能导出”冒充“已通过真机测试”。
 4. 不覆盖旧版 2D Release、存档和网页游戏。
 5. 原生工程目前尚未继承 2D 版 Fish Audio/固定剧情完整语音；后续需要单独移植验证。
+
+## 后续实装记录（2026-11-14）
+
+- Android 虚拟摇杆改为以实际屏幕坐标为中心，移动触点跟踪，防止与「交谈」按钮冲突；开始交谈后暂停移动输入
+- 角色使用真正的 `SpringArm3D` 相机、`CharacterBody3D` 物理移动；导入有骨骼的角色时可切换 `Idle / Walk / Run` 动画；NPC 支持 `Idle / Talk`
+- 世界导入现在要求正式 GLB 中含 `COL_` 命名的地面及建筑物碰撞几何，运行时转换为物理碰撞，拒绝无碰撞的空场景
+- 质量门槛同时检查模型拓扑/骨骼/动画/材质、GLB 格式、原出处/许可与人工审核记录；本地也验证审核标记
+- `assets/ART_DIRECTION.md` 规定原版人物/场景的多角度高精度美术验收
+- `shaders/cel_surface.gdshader` 提供真实模型表面使用的二次元赛璐璐材质，不直接替换或重画原版贴图
+- `tools/stage_glb.py` 用于导入外部 AI 初稿/人工修模后的真实 GLB，默认写入 `approved=false`，不会伪造美术验收
+- Android 改为传感器横屏；GitHub Actions 在模型审核成功后才允许 EXE / APK 导出
+
+**重要：这仍是开发工程，不是一个已完成的《原神》式高清可玩游戏。** 当前仓库缺少已批准的真正高精度 3D 资产，故不提供新的 EXE/APK 下载，也未完成 Android 真机、Windows 实机、真实 GPU 帧率、Fish Audio 3D 版配音测试。Godot headless 工作流只验证工程能否加载/解析，不能作为成品验收依据。
