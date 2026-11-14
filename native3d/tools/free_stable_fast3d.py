@@ -98,11 +98,18 @@ def main() -> int:
             api = client.view_api(return_format="dict")
             endpoints = set(api.get("named_endpoints", {}))
             generate = next((n for n in endpoints if n.rstrip("/").endswith("/run_button")), None)
-            if not generate:
+            preprocess = next((n for n in endpoints if n.rstrip("/").endswith("/requires_bg_remove")), None)
+            if not generate or not preprocess:
                 raise RuntimeError(
                     "Official Space changed its public API. Available: "
                     + repr(sorted(endpoints))
                 )
+            # Gradio State inputs are hidden from view_api but are REQUIRED
+            # by the underlying run_button handler. Calling the image-change
+            # handler first populates the foreground/mask state for this exact
+            # Client session; Gradio automatically transports that state.
+            preflight = client.predict(handle_file(str(original)), 0.85, api_name=preprocess)
+            print("SF3D preprocessing completed; public result type:", type(preflight).__name__, flush=True)
             # The PUBLIC Gradio endpoint exposes 5 inputs and 2 outputs.
             # Its internal web handler has 7 arguments, but Gradio State
             # parameters must NOT be supplied through Client.predict().
