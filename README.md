@@ -23,3 +23,13 @@ https://zhongyemay.github.io/galgame/
 游戏文件与图片位于 `site/`，无需安装依赖或构建。推送到 `main` 后，由 `.github/workflows/pages.yml` 自动发布至 GitHub Pages。
 
 全部场景与角色采用复古日式动画风格，所有图片均为 AI 生成的 WebP 位图，不包含矢量图片。无角色配音；背景音乐由浏览器实时合成。部分移动浏览器不支持网页全屏或方向锁定，会提供横向画布与手动全屏提示。
+
+## 3D 探索实验模式（原画一致性）
+
+- 预览入口：[镰仓 3D 自由探索](https://zhongyemay.github.io/galgame/world3d.html)。
+- 直接复用原版 style.css 的布局和对话界面，背景使用原来的 coast.webp、studio.webp、bookshop.webp，角色使用原版立绘，不另做粗糙替代美术。
+- WebGL 将原画投影到固定范围的高密度深度网格（每场景 27,456 个三角形），支持 WASD、触屏摇杆、拖动视角、场景切换与角色交谈。
+- 支持 DeepSeek 自由输入对白，并复用现有 Fish Audio 配音模块（使用用户自己的 Key；不内置共享 Key）。
+- 该模式为**基于原画的 2.5D/3D 深度投影原型**，不等于已完成全视角高精度三维场景、可进入的完整建筑室内或完全 3D 骨骼角色。离开原画参考视角后会出现投影局限；真正的精细 3D 资产仍需进一步建模与验证。
+- 不覆盖原始 2D 玩法、原有存档或已经发布的 Windows 和 Android 测试包。新版 Windows / Android 安装包需另外构建并验收。
+- 自动化检查见 tools/test_world3d.cjs；代码检查通过不代表真实设备性能已通过。
